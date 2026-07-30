@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype MOBA Mini-Game 3D</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        /* Titik Bidik (Crosshair) */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 24px;
+            pointer-events: none;
+            z-index: 10;
+            text-shadow: 0 0 5px rgba(0,0,0,1);
+        }
+
+        /* MINIMAP (Tanpa Latar & Border) */
+        #minimap-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 0;
+            z-index: 10;
+            pointer-events: none;
+        }
+        #minimap-box {
+            width: 150px;
+            height: 150px;
+            position: relative;
+            background: transparent; 
+        }
+        
+        /* Arah Mata Angin di Minimap */
+        .compass-label {
+            position: absolute;
+            font-weight: bold;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 1px 1px 3px #000, -1px -1px 3px #000, 0 0 5px #000;
+            z-index: 11;
+        }
+        .compass-n { top: 2px; left: 50%; transform: translateX(-50%); color: #FF5555; }
+        .compass-s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+        .compass-e { top: 50%; right: 4px; transform: translateY(-50%); }
+        .compass-w { top: 50%; left: 4px; transform: translateY(-50%); }
+
+        /* Ikon Pemain di Tengah Minimap */
+        #minimap-player-blip {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 8px; height: 8px;
+            background: #FFD700;
+            border: 1px solid #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 5px #000;
+            z-index: 10;
+        }
+
+        /* HUD Status (Terpisah dari Minimap agar tidak goyang) */
+        #status-hud {
+            position: absolute;
+            top: 180px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .hud-text {
+            color: #fff;
+            font-size: 12px;
+            font-family: monospace;
+            text-shadow: 1px 1px 3px #000, 0 0 3px #000;
+            text-align: left;
+        }
+        .time-text { color: #FFD700; font-weight: bold; font-size: 14px; }
+        .coord-text { color: #4CAF50; font-weight: bold; }
+
+        /* HUD Mode Editor (Kanan Atas) */
+        #editor-hud {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            left: auto;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 13px;
+            z-index: 10;
+            display: none; 
+            pointer-events: none;
+            backdrop-filter: blur(5px);
+        }
+        #editor-hud h3 { margin: 0 0 10px 0; color: #4CAF50; font-size: 15px; }
+        .tool-info { margin: 5px 0; color: #ccc; transition: 0.2s; }
+        .tool-active { color: #fff; font-weight: bold; background: rgba(255,255,255,0.2); padding: 3px 6px; border-radius: 4px; border-left: 3px solid #4CAF50;}
+        .hint-text { color: #aaa; font-size: 11px; margin-left: 10px; display: block; font-weight: normal;}
+
+        /* HOTBAR (Minecraft Style) */
+        #hotbar-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none; /* Muncul hanya di Editor Mode */
+            gap: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .hotbar-slot {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 10px;
+            text-align: center;
+            overflow: hidden;
+            word-wrap: break-word;
+            transition: 0.2s;
+            position: relative;
+        }
+        .hotbar-slot.active {
+            border-color: #FFD700;
+            background: rgba(255, 215, 0, 0.2);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+
+        /* Layar Jeda / Kunci Layar */
+        #blocker {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            cursor: default;
+        }
+
+        .pause-title {
+            color: rgba(255,255,255,0.9);
+            font-size: 16px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            pointer-events: none;
+        }
+
+        /* PEMILIHAN ROLE */
+        #role-selection {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .role-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+            width: 200px;
+            backdrop-filter: blur(10px);
+        }
+        .role-card:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); border-color: #4CAF50;}
+        .role-card h2 { margin: 0 0 10px 0; color: #4CAF50; font-size: 22px; }
+        .role-card p { font-size: 12px; color: #ddd; margin: 0; }
+
+        /* TEMA GLASSMORPHISM (MENU) */
+        .pause-container {
+            position: relative;
+            display: none; /* Disembunyikan sampai pilih role */
+            background: rgba(30, 30, 30, 0.4);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 20px rgba(255,255,255,0.05);
+            pointer-events: auto;
+            overflow: hidden;
+            color: #ffffff;
+        }
+        .pause-container::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -150%;
+            width: 50%; height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: skewX(-25deg);
+            animation: shineLight 6s infinite;
+            pointer-events: none;
+        }
+        @keyframes shineLight { 0% { left: -150%; } 20% { left: 200%; } 100% { left: 200%; } }
+
+        /* Tata Letak Sidebar Tab */
+        .tabs-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-right: 1px solid rgba(255,255,255,0.2);
+            padding-right: 20px;
+            margin-right: 20px;
+            min-width: 160px;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ccc;
+            padding: 12px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-align: left;
+            font-size: 13px;
+        }
+        .tab-btn:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+        .tab-btn.active { background: rgba(255, 255, 255, 0.25); border-color: rgba(255, 255, 255, 0.6); color: #fff; box-shadow: 0 0 10px rgba(255, 255, 255, 0.2); }
+
+        .tab-content { display: none; flex-direction: row; gap: 20px; min-width: 350px; align-items: center;}
+        .tab-content.active { display: flex; }
+
+        /* AREA DRAG & DROP DALAM TAB */
+        .drop-zone-glass {
+            width: 140px;
+            height: 140px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 15px;
+            text-align: center;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #ddd;
+            flex-shrink: 0;
+        }
+        .drop-zone-glass:hover, .drop-zone-glass.dragover { background: rgba(255, 255, 255, 0.2); border-color: #fff; transform: scale(1.02); color: #fff; }
+        .drop-zone-glass span { margin-top: 10px; font-weight: bold;}
+
+        /* Thumbnail Kumpulan Texture */
+        .texture-thumb {
+            width: 50px; height: 50px;
+            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.3);
+            cursor: pointer;
+            object-fit: cover;
+            transition: 0.2s;
+            flex-shrink: 0;
+        }
+        .texture-thumb:hover { transform: scale(1.1); border-color: #fff; }
+        .texture-thumb.active { border-color: #4CAF50; box-shadow: 0 0 10px #4CAF50; }
+
+        /* Menu Konfigurasi */
+        .anim-config-menu { display: flex; flex-direction: column; flex-grow: 1; justify-content: center; width: 100%;}
+        .anim-config-menu h3 { margin: 0 0 15px 0; font-size: 16px; color: #fff; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 5px;}
+        .config-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .config-row label { font-size: 12px; color: #ddd; font-weight: 500;}
+        .config-row select, .config-row input, .config-row button {
+            padding: 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; cursor: pointer;
+        }
+        .config-row select:focus, .config-row input:focus { outline: none; border-color: #4CAF50; }
+
+        /* Tombol Ganti Mode (Bermain / Editor) */
+        .btn-mode {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: 0.3s;
+            z-index: 30;
+            display: none; /* Disembunyikan dari Player */
+        }
+        .btn-mode:hover { transform: translateX(-50%) scale(1.05); }
+        .btn-mode.editor-active { background: linear-gradient(135deg, #E64A19, #C2185B); }
+
+        /* KONTROL MOBILE (HP) */
+        #mobile-controls {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 15; 
+            pointer-events: none; 
+            display: none; 
+        }
+        #touch-look-zone {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: auto; touch-action: none;
+            z-index: 1; 
+        }
+        #joystick-zone {
+            position: absolute;
+            bottom: 40px; left: 40px; width: 140px; height: 140px;
+            background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%; pointer-events: auto; touch-action: none;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        #joystick-knob {
+            position: absolute; top: 50%; left: 50%; width: 60px; height: 60px;
+            background: rgba(255, 255, 255, 0.6); border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #action-buttons {
+            position: absolute; bottom: 40px; right: 40px; display: flex; gap: 15px; pointer-events: auto;
+            z-index: 10;
+        }
+        .btn-mobile-action {
+            width: 60px; height: 60px; border-radius: 50%; border: none;
+            background: rgba(255, 255, 255, 0.2); color: #fff; font-weight: bold;
+            font-size: 11px; border: 2px solid rgba(255,255,255,0.4);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); touch-action: none; user-select: none;
+        }
+        .btn-mobile-action:active { background: rgba(255,255,255,0.5); transform: scale(0.95); }
+        
+        /* TOMBOL MENU MOBILE KHUSUS HP (Kanan Atas) */
+        #btn-mobile-menu {
+            position: absolute; top: 20px; right: 20px; width: 50px; height: 50px;
+            border-radius: 50%; background: rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.4);
+            color: white; font-weight: bold; font-size: 10px; z-index: 30;
+            pointer-events: auto; cursor: pointer; display: none; box-shadow: 0 0 10px #000;
+        }
+
+    </style>
+    <!-- Import Map Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- Tombol Saklar Mode -->
+    <button id="btn-toggle-mode" class="btn-mode">🎮 MODE: BERMAIN (Klik untuk ubah)</button>
+    <button id="btn-mobile-menu">MENU</button>
+
+    <div id="blocker">
+        
+        <h2 class="pause-title">Pilih Peran Anda:</h2>
+
+        <!-- PEMILIHAN ROLE -->
+        <div id="role-selection">
+            <div class="role-card" id="role-player">
+                <h2>PLAYER</h2>
+                <p>Mainkan game, berlari, melompat, dan bereksplorasi tanpa merubah dunia.</p>
+            </div>
+            <div class="role-card" id="role-developer">
+                <h2>DEVELOPER</h2>
+                <p>Akses penuh. Pahat gunung, tambahkan karakter, upload tekstur, dan sebar objek.</p>
+            </div>
+        </div>
+
+        <!-- Wadah UI Kaca Utama (Disembunyikan saat awal) -->
+        <div class="pause-container" id="ui-container">
+            <div class="tabs-sidebar" id="sidebar-tabs">
+                <button class="tab-btn active dev-only" data-target="tab-karakter">Karakter Pemain</button>
+                <button class="tab-btn dev-only" data-target="tab-assets">Tambahkan Assets</button>
+                <button class="tab-btn dev-only" data-target="tab-environment">Lingkungan (Map)</button>
+                <button class="tab-btn player-active" data-target="tab-settings">Pengaturan</button>
+            </div>
+
+            <!-- TAB 1: KARAKTER (DEV ONLY) -->
+            <div id="tab-karakter" class="tab-content active dev-only-content">
+                <div id="drop-zone-karakter" class="drop-zone-glass">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <span id="drop-text-karakter">Tarik File Karakter<br>(.glb / .gltf)</span>
+                </div>
+                <div class="anim-config-menu" id="anim-config-menu" style="display: none;">
+                    <h3>Sistem Animasi</h3>
+                    <div class="config-row"><label>Diam (Idle):</label><select id="sel-idle"><option value="">-- Pilih --</option></select></div>
+                    <div class="config-row"><label>Jalan (Walk):</label><select id="sel-walk"><option value="">-- Pilih --</option></select></div>
+                    <div class="config-row"><label>Lari (Run):</label><select id="sel-run"><option value="">-- Pilih --</option></select></div>
+                    <div class="config-row"><label>Lompat (Jump):</label><select id="sel-jump"><option value="">-- Pilih --</option></select></div>
+                </div>
+            </div>
+
+            <!-- TAB 2: TAMBAHKAN ASSETS (DEV ONLY) -->
+            <div id="tab-assets" class="tab-content dev-only-content">
+                <div style="display: flex; gap: 15px;">
+                    <!-- Dropzone GLTF/GLB -->
+                    <div id="drop-zone-assets" class="drop-zone-glass">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                        <span id="drop-text-assets">Tarik File World<br>(.glb / .gltf)</span>
+                    </div>
+                    <!-- Dropzone FBX Baru -->
+                    <div id="drop-zone-fbx" class="drop-zone-glass">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                        <span id="drop-text-fbx">Tarik File World<br>(.fbx)</span>
+                    </div>
+                </div>
+                <div class="anim-config-menu" style="color: #bbb; font-size: 12px; line-height: 1.6; max-width: 180px;">
+                    <p>Asset 3D yang diunggah akan masuk ke dalam <b>Hotbar Mode Editor (Q/E)</b> untuk diletakkan ke dunia.</p>
+                </div>
+            </div>
+
+            <!-- TAB 3: LINGKUNGAN / TEKSTUR (DEV ONLY) -->
+            <div id="tab-environment" class="tab-content dev-only-content">
+                <div id="drop-zone-texture" class="drop-zone-glass">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    <span id="drop-text-texture">Tarik Gambar<br>(.png / .jpg)</span>
+                </div>
+                <div class="anim-config-menu" style="width: 220px;">
+                    <h3>Kumpulan Texture</h3>
+                    <div id="texture-gallery" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; max-width: 100%;">
+                        <span style="color:#aaa; font-size:11px;">Belum ada tekstur.</span>
+                    </div>
+                    <p style="color: #aaa; font-size: 11px; margin-top: 10px; line-height: 1.4;">*Klik tekstur lalu tahan klik kiri di map untuk mewarnai tanah sesuai lingkaran kuas.</p>
+                </div>
+            </div>
+
+            <!-- TAB 4: PENGATURAN (SEMUA ROLE) -->
+            <div id="tab-settings" class="tab-content">
+                <div class="anim-config-menu" style="width: 100%; align-items:center;">
+                    <h3 style="text-align:center;">Pengaturan Permainan</h3>
+                    <div class="config-row" style="width:100%; justify-content:center; gap:20px;">
+                        <label>Tipe Kontrol:</label>
+                        <select id="sel-control-type" style="width: 150px;">
+                            <option value="pc">PC (Keyboard/Mouse)</option>
+                            <option value="mobile">HP (Touchscreen)</option>
+                        </select>
+                    </div>
+                    <!-- PENGATURAN WAKTU DENGAN SIKLUS 3 JAM -->
+                    <div class="config-row" style="width:100%; justify-content:center; gap:20px;">
+                        <label>Siklus Waktu:</label>
+                        <select id="sel-time-cycle" style="width: 150px;">
+                            <option value="auto">Berjalan Otomatis</option>
+                            <option value="00">Jam 00:00 (Tengah Malam)</option>
+                            <option value="03">Jam 03:00 (Dini Hari)</option>
+                            <option value="06">Jam 06:00 (Fajar)</option>
+                            <option value="09">Jam 09:00 (Pagi)</option>
+                            <option value="12">Jam 12:00 (Tengah Hari)</option>
+                            <option value="15">Jam 15:00 (Sore Terang)</option>
+                            <option value="18">Jam 18:00 (Senja/Sunset)</option>
+                            <option value="21">Jam 21:00 (Malam)</option>
+                        </select>
+                    </div>
+                    <p style="color: #aaa; font-size: 11px; text-align:center; margin-bottom: 20px;">*Klik layar gelap di luar kaca untuk melanjutkan permainan.</p>
+                    <hr style="width:100%; border-color:rgba(255,255,255,0.2); margin-bottom:20px;">
+                    <button id="btn-logout" style="background: rgba(255, 0, 0, 0.4); border:1px solid rgba(255,255,255,0.3); padding: 10px 30px; border-radius: 8px; font-weight:bold; width: 100%;">LOGOUT (Ganti Role)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- HUD KHUSUS EDITOR -->
+    <div id="editor-hud">
+        <h3>🌍 WORLD EDITOR</h3>
+        <p class="tool-info" id="info-tool-1">
+            [ 1 ] Gunung 
+            <span class="hint-text">Kiri: Angkat | Kanan: Haluskan | [ / ] : Skala</span>
+        </p>
+        <p class="tool-info" id="info-tool-2">
+            [ 2 ] Lembah 
+            <span class="hint-text">Kiri: Gali | Kanan: Haluskan | [ / ] : Skala</span>
+        </p>
+        <p class="tool-info" id="info-tool-3">
+            [ 3 ] Letakkan Asset 
+            <span class="hint-text">Pilih Hotbar: Q / E | Kiri: Letakkan.</span>
+        </p>
+        <p class="tool-info" id="info-tool-4">
+            [ 4 ] Edit / Geser Asset 
+            <span class="hint-text">Tahan Kiri: Geser | Klik Kanan: Hapus | Scroll: Skala</span>
+        </p>
+        <p class="tool-info" id="info-tool-5">
+            [ 5 ] Kuas Tekstur Lahan
+            <span class="hint-text">Tahan Kiri di tanah untuk mewarnai.</span>
+        </p>
+        <hr style="border-color: rgba(255,255,255,0.2); margin: 10px 0;">
+        <p style="margin:0; font-size: 12px; color:#aaa;">Terbang: WASD | Naik: Spasi | Turun: Shift</p>
+    </div>
+
+    <!-- HOTBAR ASSET BAWAH -->
+    <div id="hotbar-container">
+        <!-- Slot akan ditambahkan secara dinamis lewat JS -->
+    </div>
+
+    <div id="crosshair">+</div>
+
+    <!-- KONTROL MOBILE (HP) -->
+    <div id="mobile-controls">
+        <div id="touch-look-zone"></div>
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+        <div id="action-buttons">
+            <button id="btn-mob-alt" class="btn-mobile-action">LARI</button>
+            <button id="btn-mob-main" class="btn-mobile-action">LOMPAT</button>
+        </div>
+    </div>
+
+    <!-- MINIMAP HUD (TIDAK ADA BACKGROUND & BORDER) -->
+    <div id="minimap-container">
+        <!-- Bingkai Lingkaran Sempurna Tanpa Background -->
+        <div id="minimap-box" style="border-radius: 50%; overflow: hidden;">
+            <div id="minimap-render-target" style="width: 100%; height: 100%;"></div>
+            
+            <div class="compass-label compass-n">N</div>
+            <div class="compass-label compass-e">E</div>
+            <div class="compass-label compass-s">S</div>
+            <div class="compass-label compass-w">W</div>
+
+            <!-- Kerucut Penglihatan -->
+            <svg id="minimap-view-cone" viewBox="0 0 100 100" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9; transform-origin: 50% 50%;">
+                <polygon points="50,50 15,0 85,0" fill="url(#cone-grad)" opacity="0.6"/>
+                <defs>
+                    <linearGradient id="cone-grad" x1="0%" y1="100%" x2="0%" y2="0%">
+                        <stop offset="0%" stop-color="#fff" stop-opacity="1" />
+                        <stop offset="100%" stop-color="#fff" stop-opacity="0" />
+                    </linearGradient>
+                </defs>
+            </svg>
+            <div id="minimap-player-blip"></div>
+        </div>
+    </div>
+    
+    <!-- Teks Waktu & Koordinat (Terpisah di bawah Minimap) -->
+    <div id="status-hud">
+        <div class="hud-text time-text" id="hud-time">☀️ 12:00</div>
+        <div class="hud-text coord-text" id="hud-coords">📍 X: 0 | Y: 0 | Z: 0</div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+        // PENAMBAHAN WAJIB SKELETON UTILS UNTUK MENGAKALI TULANG GLTF AGAR BISA DI-SPAM
+        import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+        // LANGIT REALISTIS KINI DITAMBAHKAN KEMBALI (TANPA AWAN 3D SESUAI PERMINTAAN)
+        import { Sky } from 'three/addons/objects/Sky.js';
+
+        let scene, camera, minimapCamera, minimapRenderer, renderer;
+        
+        // VARIABEL LUKISAN LANTAI (CANVAS PAINTING)
+        let floorMesh; 
+        let floorCanvas, floorCtx, floorTex;
+        let currentCustomTextureImage = null; // Menyimpan Gambar mentah (HTML Image) untuk dilukis
+
+        let playerModel; 
+        
+        // Langit dan Waktu
+        let hemiLight, dirLight;
+        let sky, sunSphere, moonSphere, stars;
+        let dayTime = Math.PI / 2; 
+        let timeMode = 'auto'; // Mode Auto atau Jam Tertentu
+
+        // Sistem Fisika Mesh Sempurna
+        let baseObstacles = [];         
+        let baseObstacleMeshes = [];    
+        let placedAssetsList = [];      
+        
+        let savedAssetsData = {}; 
+        let savedAssetsThumbnails = {}; 
+        let savedTexturesList = []; 
+        
+        const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        thumbRenderer.setSize(80, 80);
+
+        let moveSpeed = 8.0;
+        let yVelocity = 0;
+        let isGrounded = false;
+        let jumpCount = 0;
+        const gravity = -30.0;
+        const jumpForce = 15.0;
+
+        let cameraAngle = 0;   
+        let cameraPitch = 0;   
+        const mouseSensitivity = 0.002;
+        const keys = { w: false, a: false, s: false, d: false, shift: false, space: false };
+
+        let currentRole = null; // 'player' atau 'developer'
+        let isEditorMode = false;
+        let activeEditorTool = 1; 
+        
+        let controlType = 'pc'; 
+        let joyMoveX = 0, joyMoveZ = 0; 
+        let isJoySprinting = false; 
+        let isLeftMouseDown = false;
+        let isRightMouseDown = false;
+        
+        let editorBrushSize = 5.0;
+        let brushRingMesh; 
+        let draggedAsset = null; 
+
+        let hotbarAssetNames = [];
+        let activeHotbarIndex = 0;
+
+        let mixer, animations = [], currentAction;
+        let animMap = { idle: null, walk: null, run: null, jump: null };
+        let currentAnimState = 'idle';
+        let prevTime = performance.now();
+
+        const hudTime = document.getElementById('hud-time');
+        const hudCoords = document.getElementById('hud-coords');
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x87CEEB, 0.003); // Kabut tipis menyesuaikan langit
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputColorSpace = THREE.SRGBColorSpace; 
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 0.5; // Kecerahan kamera
+            document.body.appendChild(renderer.domElement);
+
+            hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+            hemiLight.position.set(0, 200, 0);
+            scene.add(hemiLight);
+
+            dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 400;
+            dirLight.shadow.camera.left = -150;
+            dirLight.shadow.camera.right = 150;
+            dirLight.shadow.camera.top = 150;
+            dirLight.shadow.camera.bottom = -150;
+            dirLight.shadow.bias = -0.0005; 
+            scene.add(dirLight);
+
+            minimapCamera = new THREE.OrthographicCamera(-50, 50, 50, -50, 1, 500);
+            minimapCamera.up.set(0, 0, -1); 
+            scene.add(minimapCamera);
+
+            minimapRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            minimapRenderer.setSize(150, 150);
+            minimapRenderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('minimap-render-target').appendChild(minimapRenderer.domElement);
+
+            buildRealisticSky();
+            buildWorld();
+            setupDefaultPlayer();
+            setupUIAndControls();
+            setupMobileControls();
+            setupBrushMarker();
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // FUNGSI LANGIT (MATAHARI, BULAN, BINTANG) TANPA AWAN
+        function buildRealisticSky() {
+            sky = new Sky();
+            sky.scale.setScalar( 10000 ); 
+            scene.add( sky );
+
+            const skyUniforms = sky.material.uniforms;
+            skyUniforms[ 'turbidity' ].value = 10;
+            skyUniforms[ 'rayleigh' ].value = 2;   
+            skyUniforms[ 'mieCoefficient' ].value = 0.005; 
+            skyUniforms[ 'mieDirectionalG' ].value = 0.8;  
+
+            sunSphere = new THREE.Vector3();
+
+            const moonGeo = new THREE.SphereGeometry(15, 32, 32);
+            const moonMat = new THREE.MeshStandardMaterial({
+                color: 0xddddff,
+                emissive: 0x111122,
+                roughness: 0.8,
+                metalness: 0.1
+            });
+            moonSphere = new THREE.Mesh(moonGeo, moonMat);
+            scene.add(moonSphere);
+
+            const starsGeo = new THREE.BufferGeometry();
+            const starsVts = [];
+            for(let i=0; i<1500; i++) {
+                const x = (Math.random() - 0.5) * 2000;
+                const y = Math.random() * 1000 + 50; 
+                const z = (Math.random() - 0.5) * 2000;
+                starsVts.push(x, y, z);
+            }
+            starsGeo.setAttribute('position', new THREE.Float32BufferAttribute(starsVts, 3));
+            const starsMat = new THREE.PointsMaterial({color: 0xffffff, size: 2.0, transparent: true, opacity: 0});
+            stars = new THREE.Points(starsGeo, starsMat);
+            scene.add(stars);
+        }
+
+        function setupMobileControls() {
+            const joystickZone = document.getElementById('joystick-zone');
+            const joystickKnob = document.getElementById('joystick-knob');
+            const touchLookZone = document.getElementById('touch-look-zone');
+            const btnMain = document.getElementById('btn-mob-main');
+            const btnAlt = document.getElementById('btn-mob-alt');
+
+            let joyActive = false;
+            let joyTouchId = null; 
+            let joyOrigin = { x: 0, y: 0 };
+            const maxJoyRadius = 50;
+
+            joystickZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (joyActive) return; 
+                const touches = e.changedTouches;
+                for (let i = 0; i < touches.length; i++) {
+                    joyActive = true;
+                    joyTouchId = touches[i].identifier; 
+                    const rect = joystickZone.getBoundingClientRect();
+                    joyOrigin.x = rect.left + rect.width / 2;
+                    joyOrigin.y = rect.top + rect.height / 2;
+                    updateJoystick(touches[i]);
+                    break;
+                }
+            }, {passive: false});
+
+            joystickZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if(!joyActive) return;
+                const touches = e.changedTouches;
+                for (let i = 0; i < touches.length; i++) {
+                    if (touches[i].identifier === joyTouchId) {
+                        updateJoystick(touches[i]);
+                        break;
+                    }
+                }
+            }, {passive: false});
+
+            const resetJoystick = (e) => {
+                const touches = e.changedTouches;
+                for (let i = 0; i < touches.length; i++) {
+                    if (touches[i].identifier === joyTouchId) {
+                        joyActive = false;
+                        joyTouchId = null;
+                        joyMoveX = 0; joyMoveZ = 0;
+                        joystickKnob.style.transform = `translate(-50%, -50%)`;
+                        break;
+                    }
+                }
+            };
+            joystickZone.addEventListener('touchend', resetJoystick);
+            joystickZone.addEventListener('touchcancel', resetJoystick);
+
+            function updateJoystick(touch) {
+                let dx = touch.clientX - joyOrigin.x;
+                let dy = touch.clientY - joyOrigin.y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance > maxJoyRadius) {
+                    dx = (dx / distance) * maxJoyRadius;
+                    dy = (dy / distance) * maxJoyRadius;
+                }
+                joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                joyMoveX = dx / maxJoyRadius;
+                joyMoveZ = dy / maxJoyRadius;
+            }
+
+            let isLooking = false;
+            let lookTouchId = null;
+            let lastTouchLook = { x: 0, y: 0 };
+
+            touchLookZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if(isLooking) return;
+                const touches = e.changedTouches;
+                for (let i = 0; i < touches.length; i++) {
+                    isLooking = true;
+                    lookTouchId = touches[i].identifier;
+                    lastTouchLook.x = touches[i].clientX;
+                    lastTouchLook.y = touches[i].clientY;
+                    break;
+                }
+            }, {passive: false});
+
+            touchLookZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if(!isLooking) return;
+                const touches = e.changedTouches;
+                for (let i = 0; i < touches.length; i++) {
+                    if (touches[i].identifier === lookTouchId) {
+                        let currentX = touches[i].clientX;
+                        let currentY = touches[i].clientY;
+                        let deltaX = currentX - lastTouchLook.x;
+                        let deltaY = currentY - lastTouchLook.y;
+                        
+                        cameraAngle -= deltaX * 0.005;
+                        cameraPitch -= deltaY * 0.005; 
+                        cameraPitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, cameraPitch));
+                        
+                        lastTouchLook.x = currentX;
+                        lastTouchLook.y = currentY;
+                        break;
+                    }
+                }
+            }, {passive: false});
+
+            const resetLook = (e) => {
+                const touches = e.changedTouches;
+                for (let i = 0; i < touches.length; i++) {
+                    if (touches[i].identifier === lookTouchId) {
+                        isLooking = false;
+                        lookTouchId = null;
+                        break;
+                    }
+                }
+            };
+            touchLookZone.addEventListener('touchend', resetLook);
+            touchLookZone.addEventListener('touchcancel', resetLook);
+
+            btnMain.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (isEditorMode) { isLeftMouseDown = true; } 
+                else { if (jumpCount < 2) { yVelocity = jumpForce; jumpCount++; isGrounded = false; } }
+            });
+            btnMain.addEventListener('touchend', () => isLeftMouseDown = false);
+
+            btnAlt.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (isEditorMode) { isRightMouseDown = true; } 
+                else { isJoySprinting = true; }
+            });
+            btnAlt.addEventListener('touchend', () => { isRightMouseDown = false; isJoySprinting = false; });
+        }
+
+        // FUNGSI LINGKUNGAN YANG DIPERBARUI UNTUK CANVAS PAINTING
+        function buildWorld() {
+            // Membuat Kanvas beresolusi super besar (2048x2048) agar bisa dilukis dengan jernih
+            floorCanvas = document.createElement('canvas');
+            floorCanvas.width = 2048; 
+            floorCanvas.height = 2048;
+            floorCtx = floorCanvas.getContext('2d');
+            
+            // Cat warna rumput dasar
+            floorCtx.fillStyle = '#4CAF50'; 
+            floorCtx.fillRect(0, 0, 2048, 2048);
+            // Tambah sedikit bintik rumput
+            floorCtx.fillStyle = '#388E3C';
+            for(let i=0; i<10000; i++) floorCtx.fillRect(Math.random()*2048, Math.random()*2048, 8, 24);
+            
+            floorTex = new THREE.CanvasTexture(floorCanvas);
+            floorTex.colorSpace = THREE.SRGBColorSpace;
+            // Tidak perlu di-repeat lagi, kanvas raksasa ini akan membentang menutupi seluruh map 200x200!
+
+            const floorGeo = new THREE.PlaneGeometry(200, 200, 100, 100);
+            const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.9, wireframe: false });
+            floorMesh = new THREE.Mesh(floorGeo, floorMat);
+            floorMesh.rotation.x = -Math.PI / 2;
+            floorMesh.receiveShadow = true;
+            scene.add(floorMesh);
+
+            function createBox(w, h, d, x, z, color) {
+                const geo = new THREE.BoxGeometry(w, h, d);
+                const mat = new THREE.MeshStandardMaterial({ color: color });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(x, h/2, z);
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                scene.add(mesh);
+                const box = new THREE.Box3().setFromObject(mesh);
+                baseObstacles.push(box); 
+                baseObstacleMeshes.push(mesh); 
+            }
+            createBox(10, 5, 10, -20, -20, 0x888888);
+            createBox(30, 3, 4, 0, 0, 0xB71C1C);
+        }
+
+        function setupBrushMarker() {
+            const ringGeo = new THREE.RingGeometry(0.8, 1, 32);
+            ringGeo.rotateX(-Math.PI / 2);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xFFD700, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+            brushRingMesh = new THREE.Mesh(ringGeo, ringMat);
+            brushRingMesh.visible = false; 
+            scene.add(brushRingMesh);
+        }
+
+        function setupDefaultPlayer() {
+            const geo = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
+            const mat = new THREE.MeshStandardMaterial({ color: 0xFFA500 });
+            playerModel = new THREE.Mesh(geo, mat);
+            playerModel.position.set(0, 5, 10);
+            playerModel.castShadow = true;
+            scene.add(playerModel);
+        }
+
+        // PENDETEKSI MATERIAL AUTO-FIX
+        function applyMaterialFixes(model) {
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.material) {
+                        const materials = Array.isArray(child.material) ? child.material : [child.material];
+                        materials.forEach(mat => {
+                            mat.side = THREE.DoubleSide; 
+                            if (mat.transparent || mat.alphaMap || (mat.map && mat.map.format === THREE.RGBAFormat)) {
+                                mat.transparent = false; 
+                                mat.alphaTest = 0.5; 
+                                mat.depthWrite = true;
+                            }
+                            if (mat.opacity === 0) mat.opacity = 1;
+                        });
+                    }
+                }
+            });
+        }
+
+        function setupUIAndControls() {
+            const blocker = document.getElementById('blocker');
+            const roleSelection = document.getElementById('role-selection');
+            const uiContainer = document.getElementById('ui-container');
+            const btnToggleMode = document.getElementById('btn-toggle-mode');
+            const editorHud = document.getElementById('editor-hud');
+            const hotbar = document.getElementById('hotbar-container');
+            const mobControls = document.getElementById('mobile-controls');
+            const btnMobMain = document.getElementById('btn-mob-main');
+            const btnMobAlt = document.getElementById('btn-mob-alt');
+            const btnMobMenu = document.getElementById('btn-mobile-menu');
+
+            document.getElementById('role-player').addEventListener('click', () => setRole('player'));
+            document.getElementById('role-developer').addEventListener('click', () => setRole('developer'));
+            
+            document.getElementById('btn-logout').addEventListener('click', () => {
+                currentRole = null;
+                isEditorMode = false;
+                btnToggleMode.style.display = 'none';
+                editorHud.style.display = 'none';
+                hotbar.style.display = 'none';
+                uiContainer.style.display = 'none';
+                roleSelection.style.display = 'flex';
+                document.querySelector('.pause-title').innerText = "Pilih Peran Anda:";
+            });
+
+            function setRole(role) {
+                currentRole = role;
+                roleSelection.style.display = 'none';
+                uiContainer.style.display = 'flex';
+                document.querySelector('.pause-title').innerText = "Klik layar gelap di luar kotak kaca untuk melanjutkan";
+
+                if (role === 'player') {
+                    btnToggleMode.style.display = 'none';
+                    document.querySelectorAll('.dev-only').forEach(el => el.style.display = 'none');
+                    document.getElementById('tab-settings').classList.add('active');
+                } else if (role === 'developer') {
+                    btnToggleMode.style.display = 'block';
+                    document.querySelectorAll('.dev-only').forEach(el => el.style.display = 'block');
+                    
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.querySelector('[data-target="tab-karakter"]').classList.add('active');
+                    document.getElementById('tab-karakter').classList.add('active');
+                }
+            }
+
+            btnToggleMode.addEventListener('click', () => {
+                isEditorMode = !isEditorMode;
+                if(isEditorMode) {
+                    btnToggleMode.innerHTML = "🛠️ MODE: EDITOR (Klik untuk ubah)";
+                    btnToggleMode.classList.add('editor-active');
+                    camera.position.set(playerModel.position.x, playerModel.position.y + 15, playerModel.position.z + 10);
+                    btnMobMain.innerText = "KLIK/PAHAT";
+                    btnMobAlt.innerText = "HAPUS/RATA";
+                } else {
+                    btnToggleMode.innerHTML = "🎮 MODE: BERMAIN (Klik untuk ubah)";
+                    btnToggleMode.classList.remove('editor-active');
+                    editorHud.style.display = 'none';
+                    hotbar.style.display = 'none';
+                    brushRingMesh.visible = false;
+                    btnMobMain.innerText = "LOMPAT";
+                    btnMobAlt.innerText = "LARI";
+                }
+            });
+
+            document.getElementById('sel-control-type').addEventListener('change', (e) => {
+                controlType = e.target.value;
+                if(controlType === 'mobile' && document.pointerLockElement === document.body) {
+                    document.exitPointerLock();
+                }
+            });
+
+            document.getElementById('sel-time-cycle').addEventListener('change', (e) => {
+                timeMode = e.target.value;
+            });
+
+            btnMobMenu.addEventListener('click', () => {
+                blocker.style.display = 'flex';
+                mobControls.style.display = 'none';
+                btnMobMenu.style.display = 'none';
+                btnToggleMode.style.display = (currentRole === 'developer') ? 'block' : 'none';
+                editorHud.style.display = 'none';
+                hotbar.style.display = 'none';
+            });
+
+            blocker.addEventListener('click', (e) => {
+                if (uiContainer.contains(e.target) || roleSelection.contains(e.target) || !currentRole) return; 
+                
+                if (controlType === 'pc') {
+                    document.body.requestPointerLock().catch(err => console.log("Menunda penguncian."));
+                } else {
+                    blocker.style.display = 'none';
+                    btnToggleMode.style.display = 'none';
+                    mobControls.style.display = 'block';
+                    btnMobMenu.style.display = 'block';
+                    if(isEditorMode && currentRole === 'developer') {
+                        editorHud.style.display = 'block';
+                        hotbar.style.display = 'flex';
+                    }
+                    updateEditorHudColors();
+                }
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                if (controlType === 'mobile') return; 
+                
+                if (document.pointerLockElement === document.body) {
+                    blocker.style.display = 'none';
+                    btnToggleMode.style.display = 'none';
+                    mobControls.style.display = 'none'; 
+                    btnMobMenu.style.display = 'none';
+                    if(isEditorMode && currentRole === 'developer') {
+                        editorHud.style.display = 'block';
+                        hotbar.style.display = 'flex';
+                    }
+                    updateEditorHudColors();
+                } else {
+                    blocker.style.display = 'flex';
+                    btnToggleMode.style.display = (currentRole === 'developer') ? 'block' : 'none';
+                    editorHud.style.display = 'none';
+                    hotbar.style.display = 'none';
+                    brushRingMesh.visible = false;
+                }
+            });
+
+            document.addEventListener('contextmenu', e => e.preventDefault());
+
+            document.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement === document.body) {
+                    cameraAngle -= e.movementX * mouseSensitivity;
+                    cameraPitch -= e.movementY * mouseSensitivity; 
+                    cameraPitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, cameraPitch));
+                }
+            });
+
+            document.addEventListener('mousedown', (e) => {
+                if (document.pointerLockElement !== document.body) return;
+                
+                if (e.button === 0) { isLeftMouseDown = true; }
+                if (e.button === 2) { isRightMouseDown = true; }
+
+                if (isEditorMode && currentRole === 'developer') {
+                    const raycaster = new THREE.Raycaster();
+                    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+
+                    // ALAT 3: LETAKKAN ASET FBX/GLTF
+                    if (activeEditorTool === 3 && e.button === 0) {
+                        const floorIntersects = raycaster.intersectObject(floorMesh);
+                        if(floorIntersects.length > 0 && hotbarAssetNames.length > 0) {
+                            const point = floorIntersects[0].point;
+                            const assetName = hotbarAssetNames[activeHotbarIndex];
+                            if(savedAssetsData[assetName]) {
+                                const newAsset = SkeletonUtils.clone(savedAssetsData[assetName]);
+                                newAsset.position.set(point.x, point.y, point.z); 
+                                applyMaterialFixes(newAsset); 
+                                scene.add(newAsset);
+                                newAsset.updateMatrixWorld(true);
+                                placedAssetsList.push({ mesh: newAsset });
+                            }
+                        }
+                    }
+
+                    // ALAT 4: HAPUS / GESER ASET
+                    if (activeEditorTool === 4) {
+                        const allMeshes = placedAssetsList.map(a => a.mesh);
+                        const intersects = raycaster.intersectObjects(allMeshes, true);
+                        if (intersects.length > 0) {
+                            let foundAsset = null;
+                            for (let a of placedAssetsList) {
+                                a.mesh.traverse((child) => {
+                                    if (child === intersects[0].object) foundAsset = a.mesh;
+                                });
+                                if (foundAsset) break;
+                            }
+                            if (foundAsset) {
+                                if (e.button === 0) {
+                                    draggedAsset = foundAsset; 
+                                } else if (e.button === 2) {
+                                    scene.remove(foundAsset);
+                                    placedAssetsList = placedAssetsList.filter(a => a.mesh !== foundAsset);
+                                }
+                            }
+                        }
+                    }
+
+                    // ALAT 5 (Mewarnai Kotak Bawaan Saja) - Mewarnai lantai ditangani di dalam fungsi animate()
+                    if (activeEditorTool === 5 && e.button === 0 && currentCustomTextureImage) {
+                        const allTargets = [...baseObstacleMeshes]; 
+                        placedAssetsList.forEach(a => allTargets.push(a.mesh));
+                        
+                        const intersects = raycaster.intersectObjects(allTargets, true);
+                        if (intersects.length > 0) {
+                            const hitMesh = intersects[0].object;
+                            if (hitMesh.isMesh && hitMesh !== floorMesh) {
+                                const box = new THREE.Box3().setFromObject(hitMesh);
+                                const size = box.getSize(new THREE.Vector3());
+                                const maxDim = Math.max(size.x, size.y, size.z);
+                                let repeats = Math.max(1, Math.round(maxDim / 5)); 
+                                
+                                // Bikin tekstur instan untuk objek 3D
+                                const objTex = new THREE.Texture(currentCustomTextureImage);
+                                objTex.wrapS = THREE.RepeatWrapping; objTex.wrapT = THREE.RepeatWrapping;
+                                objTex.repeat.set(repeats, repeats);
+                                objTex.colorSpace = THREE.SRGBColorSpace;
+                                objTex.needsUpdate = true;
+                                
+                                hitMesh.material = hitMesh.material.clone();
+                                hitMesh.material.map = objTex;
+                                hitMesh.material.color = new THREE.Color(0xffffff); 
+                                hitMesh.material.needsUpdate = true;
+                            }
+                        }
+                    }
+                }
+            });
+            
+            document.addEventListener('mouseup', (e) => { 
+                if (e.button === 0) { isLeftMouseDown = false; }
+                if (e.button === 2) { isRightMouseDown = false; }
+                if (draggedAsset) { draggedAsset = null; }
+            });
+
+            document.addEventListener('wheel', (e) => {
+                if (!isEditorMode || document.pointerLockElement !== document.body) return;
+                
+                if (activeEditorTool === 1 || activeEditorTool === 2 || activeEditorTool === 5) {
+                    editorBrushSize += e.deltaY * -0.005;
+                    editorBrushSize = Math.max(1.0, Math.min(20.0, editorBrushSize));
+                } 
+                else if (activeEditorTool === 4 && draggedAsset) {
+                    let scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                    draggedAsset.scale.multiplyScalar(scaleFactor);
+                }
+            });
+
+            document.addEventListener('keydown', (e) => {
+                const key = e.key.toLowerCase();
+                if(keys.hasOwnProperty(key)) keys[key] = true;
+                if(key === ' ' && !isEditorMode && jumpCount < 2) {
+                    yVelocity = jumpForce; jumpCount++; isGrounded = false;
+                } else if(key === ' ') { keys.space = true; }
+                
+                if(isEditorMode && currentRole === 'developer') {
+                    if(['1','2','3','4','5'].includes(key)) {
+                        activeEditorTool = parseInt(key);
+                        updateEditorHudColors();
+                    }
+                    if (key === '[' || e.key === '[') editorBrushSize = Math.max(1.0, editorBrushSize - 1.0);
+                    if (key === ']' || e.key === ']') editorBrushSize = Math.min(20.0, editorBrushSize + 1.0);
+                    
+                    if (key === 'q' && hotbarAssetNames.length > 0) {
+                        activeHotbarIndex--;
+                        if(activeHotbarIndex < 0) activeHotbarIndex = hotbarAssetNames.length - 1;
+                        renderHotbar();
+                    }
+                    if (key === 'e' && hotbarAssetNames.length > 0) {
+                        activeHotbarIndex++;
+                        if(activeHotbarIndex >= hotbarAssetNames.length) activeHotbarIndex = 0;
+                        renderHotbar();
+                    }
+                }
+            });
+            document.addEventListener('keyup', (e) => {
+                const key = e.key.toLowerCase();
+                if(keys.hasOwnProperty(key)) keys[key] = false;
+                if(key === ' ') keys.space = false;
+            });
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(btn.getAttribute('data-target')).classList.add('active');
+                });
+            });
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => document.body.addEventListener(evt, e => e.preventDefault()));
+            
+            setupDropZone('drop-zone-karakter', 'drop-text-karakter', 'karakter');
+            setupDropZone('drop-zone-assets', 'drop-text-assets', 'asset-gltf');
+            setupDropZone('drop-zone-fbx', 'drop-text-fbx', 'asset-fbx');
+            setupDropZoneTexture();
+        }
+
+        function updateEditorHudColors() {
+            for(let i=1; i<=5; i++) {
+                const el = document.getElementById('info-tool-'+i);
+                if(el) el.className = (activeEditorTool === i) ? 'tool-active' : 'tool-info';
+            }
+        }
+
+        function setupDropZone(zoneId, textId, type) {
+            const dropZone = document.getElementById(zoneId);
+            if(!dropZone) return; 
+            const originalHTML = dropZone.innerHTML;
+
+            dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'));
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            
+            dropZone.addEventListener('drop', (e) => {
+                dropZone.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                if(files.length === 0) return;
+
+                let mainFile = null;
+                let isFBX = false;
+
+                // Logika Pintar Pengecekan DropZone
+                mainFile = files.find(f => f.name.toLowerCase().endsWith('.fbx'));
+                if (mainFile) {
+                    isFBX = true;
+                } else {
+                    mainFile = files.find(f => f.name.toLowerCase().match(/\.(glb|gltf)$/));
+                }
+
+                if(!mainFile) return;
+
+                dropZone.innerHTML = "<br>Memuat...";
+
+                const fileMap = new Map();
+                files.forEach(f => fileMap.set(f.name.toLowerCase(), URL.createObjectURL(f)));
+
+                // AI MESIN URL CERDAS UNTUK MEMBACA TEKSTUR WINDOWS (\) DAN MENCEGAH CRASH
+                const manager = new THREE.LoadingManager();
+                manager.setURLModifier((url) => {
+                    if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+                    let cleanUrl = url.replace(/\\/g, '/');
+                    cleanUrl = cleanUrl.split('?')[0];
+                    const fileName = cleanUrl.split('/').pop().toLowerCase();
+                    return fileMap.has(fileName) ? fileMap.get(fileName) : url;
+                });
+
+                if (isFBX) {
+                    const loader = new FBXLoader(manager);
+                    loader.load(fileMap.get(mainFile.name.toLowerCase()), (fbx) => {
+                        fbx.scale.set(0.01, 0.01, 0.01); 
+                        saveAssetToLibrary(fbx, mainFile.name);
+                        dropZone.innerHTML = "<br><span style='color:#aaffaa;'>Berhasil!</span>";
+                        setTimeout(() => { dropZone.innerHTML = originalHTML; }, 2000);
+                    }, undefined, (error) => {
+                        console.error("Gagal memuat FBX: ", error);
+                        dropZone.innerHTML = "<br><span style='color:#ff5555;'>Gagal</span>";
+                        setTimeout(() => { dropZone.innerHTML = originalHTML; }, 2000);
+                    });
+                } else {
+                    const loader = new GLTFLoader(manager);
+                    loader.load(fileMap.get(mainFile.name.toLowerCase()), (gltf) => {
+                        if(type === 'karakter') loadCharacter(gltf);
+                        else saveAssetToLibrary(gltf.scene, mainFile.name);
+                        
+                        dropZone.innerHTML = "<br><span style='color:#aaffaa;'>Berhasil!</span>";
+                        setTimeout(() => { dropZone.innerHTML = originalHTML; }, 2000);
+                    }, undefined, (error) => {
+                        console.error("Gagal memuat GLTF: ", error);
+                        dropZone.innerHTML = "<br><span style='color:#ff5555;'>Gagal</span>";
+                        setTimeout(() => { dropZone.innerHTML = originalHTML; }, 2000);
+                    });
+                }
+            });
+        }
+
+        function setupDropZoneTexture() {
+            const dropZone = document.getElementById('drop-zone-texture');
+            if(!dropZone) return;
+            const originalHTML = dropZone.innerHTML;
+
+            dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'));
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            dropZone.addEventListener('drop', (e) => {
+                dropZone.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if(!file || !file.name.match(/\.(png|jpe?g)$/i)) return;
+
+                dropZone.innerHTML = "<br>Menyimpan...";
+                const url = URL.createObjectURL(file);
+                
+                // MENGUBAH GAMBAR MENJADI OBJEK HTML IMAGE (UNTUK KANVAS)
+                const img = new Image();
+                img.src = url;
+                img.onload = () => {
+                    savedTexturesList.push({ url: url, image: img });
+                    renderTextureGallery();
+                    
+                    dropZone.innerHTML = "<br><span style='color:#aaffaa;'>Tersimpan!</span>";
+                    setTimeout(() => { dropZone.innerHTML = originalHTML; }, 3000);
+                }
+            });
+        }
+
+        function renderTextureGallery() {
+            const gallery = document.getElementById('texture-gallery');
+            gallery.innerHTML = '';
+            
+            savedTexturesList.forEach((item) => {
+                const img = document.createElement('img');
+                img.src = item.url;
+                img.className = 'texture-thumb';
+                img.onclick = () => {
+                    document.querySelectorAll('.texture-thumb').forEach(el => el.classList.remove('active'));
+                    img.classList.add('active');
+                    
+                    // MENYIMPAN GAMBAR KE KUAS LUKIS TANPA MENGGANTI SELURUH LANTAI SEKALIGUS
+                    currentCustomTextureImage = item.image; 
+                    activeEditorTool = 5;
+                    updateEditorHudColors();
+                };
+                gallery.appendChild(img);
+            });
+        }
+
+        function loadCharacter(gltf) {
+            if (playerModel) scene.remove(playerModel);
+            playerModel = gltf.scene;
+            applyMaterialFixes(playerModel);
+            playerModel.position.set(0, 10, 0); 
+            scene.add(playerModel);
+
+            animations = gltf.animations;
+            const menu = document.getElementById('anim-config-menu');
+            
+            if (animations && animations.length > 0) {
+                mixer = new THREE.AnimationMixer(playerModel);
+                menu.style.display = 'flex';
+                
+                const selects = {
+                    idle: document.getElementById('sel-idle'),
+                    walk: document.getElementById('sel-walk'),
+                    run: document.getElementById('sel-run'),
+                    jump: document.getElementById('sel-jump')
+                };
+                
+                for (let key in selects) {
+                    selects[key].innerHTML = '<option value="">-- Pilih --</option>';
+                    animMap[key] = null;
+                }
+
+                animations.forEach((clip, index) => {
+                    let name = clip.name.toLowerCase();
+                    for (let key in selects) {
+                        let opt = document.createElement('option');
+                        opt.value = index; opt.text = clip.name;
+                        selects[key].appendChild(opt);
+                        if (!animMap[key] && name.includes(key)) {
+                            animMap[key] = clip; selects[key].value = index;
+                        }
+                    }
+                });
+
+                for (let key in selects) {
+                    selects[key].addEventListener('change', (e) => {
+                        let idx = e.target.value;
+                        animMap[key] = idx !== "" ? animations[idx] : null;
+                        if(currentAnimState === key) playAnimation(key);
+                    });
+                }
+                playAnimation('idle');
+            } else {
+                mixer = null;
+                menu.style.display = 'none';
+            }
+        }
+
+        function playAnimation(state) {
+            if (!mixer || currentAnimState === state) return;
+            currentAnimState = state;
+            const clip = animMap[state];
+            if (!clip) return;
+            const nextAction = mixer.clipAction(clip);
+            if (currentAction) currentAction.crossFadeTo(nextAction, 0.2, true);
+            nextAction.reset().play();
+            currentAction = nextAction;
+        }
+
+        function generateThumbnail(model) {
+            const tScene = new THREE.Scene();
+            const tCam = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+            tScene.add(new THREE.AmbientLight(0xffffff, 1.5));
+            const dl = new THREE.DirectionalLight(0xffffff, 2);
+            dl.position.set(5, 5, 5);
+            tScene.add(dl);
+
+            const clone = SkeletonUtils.clone(model);
+            tScene.add(clone);
+
+            const box = new THREE.Box3().setFromObject(clone);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            
+            tCam.position.set(center.x, center.y, center.z + (maxDim * 1.5));
+            tCam.lookAt(center);
+
+            thumbRenderer.render(tScene, tCam);
+            return thumbRenderer.domElement.toDataURL('image/png');
+        }
+
+        function saveAssetToLibrary(modelScene, name) {
+            applyMaterialFixes(modelScene); 
+            savedAssetsData[name] = modelScene;
+            savedAssetsThumbnails[name] = generateThumbnail(modelScene); 
+            
+            if(!hotbarAssetNames.includes(name)) {
+                hotbarAssetNames.push(name);
+                renderHotbar();
+            }
+        }
+
+        function renderHotbar() {
+            const container = document.getElementById('hotbar-container');
+            container.innerHTML = '';
+            hotbarAssetNames.forEach((name, index) => {
+                const slot = document.createElement('div');
+                slot.className = 'hotbar-slot' + (index === activeHotbarIndex ? ' active' : '');
+                
+                if (savedAssetsThumbnails[name]) {
+                    slot.style.backgroundImage = `url(${savedAssetsThumbnails[name]})`;
+                    slot.style.backgroundSize = 'contain';
+                    slot.style.backgroundPosition = 'center';
+                    slot.style.backgroundRepeat = 'no-repeat';
+                    slot.innerHTML = `<span style="position:absolute; bottom:2px; font-size:9px; background:rgba(0,0,0,0.6); padding:2px 4px; border-radius:4px; pointer-events:none;">${name.substring(0, 6)}</span>`;
+                } else {
+                    let displayName = name.split('.')[0]; 
+                    slot.innerText = displayName.substring(0, 8);
+                }
+                container.appendChild(slot);
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            let time = performance.now();
+            let delta = (time - prevTime) / 1000;
+            prevTime = time;
+
+            // SISTEM WAKTU SPESIFIK & REALISTIS
+            if (timeMode === 'auto') {
+                dayTime += delta * 0.03; 
+                if (dayTime > Math.PI * 2) dayTime -= Math.PI * 2;
+            } else {
+                let selectedHour = parseInt(timeMode); 
+                dayTime = ((selectedHour + 18) % 24) / 24 * (Math.PI * 2);
+            }
+
+            let sunHeight = Math.sin(dayTime); 
+
+            // UPDATE LANGIT DAN LAMPU BAYANGAN
+            if (sky) {
+                const distance = 400000;
+                sunSphere.x = Math.cos(dayTime) * distance;
+                sunSphere.y = sunHeight * distance;
+                sunSphere.z = Math.sin(dayTime) * distance * 0.5;
+
+                sky.material.uniforms['sunPosition'].value.copy(sunSphere);
+
+                if (sunHeight > 0) { 
+                    dirLight.position.set(sunSphere.x, sunSphere.y, sunSphere.z).normalize().multiplyScalar(100);
+                    
+                    let t = Math.min(sunHeight / 0.3, 1.0); 
+                    dirLight.intensity = t * 2.0; 
+                    hemiLight.intensity = 0.4 + (t * 0.4); 
+                    
+                    if (sunHeight < 0.2) dirLight.color.set(0xffaa55); 
+                    else dirLight.color.lerpColors(new THREE.Color(0xffaa55), new THREE.Color(0xffffff), (sunHeight - 0.2) / 0.8);
+                    
+                    scene.fog.color.lerpColors(new THREE.Color(0xff8c42), new THREE.Color(0x87ceeb), t);
+                } else { 
+                    dirLight.position.set(-sunSphere.x, -sunSphere.y, -sunSphere.z).normalize().multiplyScalar(100);
+                    let t = Math.min(Math.abs(sunHeight) / 0.3, 1.0);
+                    dirLight.intensity = t * 0.4; 
+                    dirLight.color.set(0x88bbff); 
+                    hemiLight.intensity = 0.1 + (t * 0.1);
+                    scene.fog.color.set(0x0a0a2a); 
+                }
+
+                if (moonSphere) {
+                    moonSphere.position.copy(sunSphere).negate().normalize().multiplyScalar(500);
+                }
+
+                if (stars) {
+                    stars.material.opacity = Math.max(0, -sunHeight * 2);
+                }
+            }
+
+            if (mixer) mixer.update(delta);
+
+            if (playerModel) {
+                let hoursFloat = ((dayTime / (Math.PI * 2)) * 24 + 6) % 24;
+                let h = Math.floor(hoursFloat);
+                let m = Math.floor((hoursFloat - h) * 60);
+                let timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                let icon = (h >= 6 && h < 18) ? '☀️' : '🌙';
+                hudTime.innerText = `${icon} WAKTU: ${timeStr}`;
+
+                let px = Math.round(playerModel.position.x);
+                let py = Math.round(playerModel.position.y);
+                let pz = Math.round(playerModel.position.z);
+                hudCoords.innerText = `📍 X: ${px} | Y: ${py} | Z: ${pz}`;
+
+                minimapCamera.position.set(playerModel.position.x, 200, playerModel.position.z);
+                minimapCamera.lookAt(playerModel.position.x, 0, playerModel.position.z);
+                document.getElementById('minimap-view-cone').style.transform = `rotate(${-cameraAngle}rad)`;
+            }
+
+            // KONTROL MODE EDITOR & KUAS TEKSTUR LANTAI
+            if (isEditorMode) {
+                let moveSpeedEditor = (keys.shift || isJoySprinting) ? 40 : 20;
+                let moveX = joyMoveX, moveZ = joyMoveZ, moveY = 0;
+                
+                if (keys.w) moveZ = -1;
+                if (keys.s) moveZ = 1;
+                if (keys.a) moveX = -1;
+                if (keys.d) moveX = 1;
+                if (keys.space) moveY = 1;
+                if (keys.shift) moveY = -1;
+                
+                camera.rotation.set(cameraPitch, cameraAngle, 0, 'YXZ');
+
+                if(moveX !== 0 || moveZ !== 0 || moveY !== 0) {
+                    let s = Math.sin(cameraAngle); let c = Math.cos(cameraAngle);
+                    let finalX = (moveX * c + moveZ * s) * moveSpeedEditor * delta;
+                    let finalZ = (moveX * -s + moveZ * c) * moveSpeedEditor * delta;
+                    
+                    camera.position.x += finalX;
+                    camera.position.z += finalZ;
+                    camera.position.y += moveY * moveSpeedEditor * delta;
+                }
+
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+                const floorIntersects = raycaster.intersectObject(floorMesh);
+
+                if (floorIntersects.length > 0) {
+                    brushRingMesh.visible = true;
+                    brushRingMesh.position.copy(floorIntersects[0].point);
+                    brushRingMesh.position.y += 0.2; 
+                    
+                    // PERBAIKAN BENTUK OVAL -> LINGKARAN SEMPURNA DI ALAT 1, 2, DAN 5
+                    if (activeEditorTool === 1 || activeEditorTool === 2 || activeEditorTool === 5) {
+                        brushRingMesh.scale.set(editorBrushSize, 1, editorBrushSize);
+                    } else if (activeEditorTool === 3 || activeEditorTool === 4) {
+                        brushRingMesh.scale.set(1.5, 1, 1.5); 
+                    } else {
+                        brushRingMesh.visible = false;
+                    }
+                } else {
+                    brushRingMesh.visible = false;
+                }
+
+                if(floorIntersects.length > 0) {
+                    const point = floorIntersects[0].point; 
+                    const uv = floorIntersects[0].uv; // Titik pemetaan gambar lantai (0 sampai 1)
+
+                    // ALAT 1 & 2 : PAHAT GUNUNG LEMBAH
+                    if((activeEditorTool === 1 || activeEditorTool === 2) && (isLeftMouseDown || isRightMouseDown)) {
+                        const positions = floorMesh.geometry.attributes.position;
+                        const localPoint = floorMesh.worldToLocal(point.clone());
+                        const sculptStrength = 20.0 * delta; 
+                        
+                        let sumHeight = 0, count = 0;
+                        let affectedVerts = [];
+
+                        for(let i = 0; i < positions.count; i++) {
+                            const vx = positions.getX(i);
+                            const vy = positions.getY(i);
+                            const dist = Math.sqrt((vx - localPoint.x)**2 + (vy - localPoint.y)**2);
+                            
+                            if(dist < editorBrushSize) {
+                                const falloff = Math.cos((dist / editorBrushSize) * (Math.PI / 2)); 
+                                affectedVerts.push({ index: i, falloff: falloff });
+                                sumHeight += positions.getZ(i);
+                                count++;
+                            }
+                        }
+
+                        if(isLeftMouseDown) {
+                            for(let v of affectedVerts) {
+                                let curZ = positions.getZ(v.index);
+                                if(activeEditorTool === 1) curZ += sculptStrength * v.falloff;
+                                else curZ -= sculptStrength * v.falloff;
+                                positions.setZ(v.index, curZ);
+                            }
+                        } else if(isRightMouseDown && count > 0) {
+                            let avgHeight = sumHeight / count;
+                            let smoothRate = 10.0 * delta;
+                            for(let v of affectedVerts) {
+                                let curZ = positions.getZ(v.index);
+                                let newZ = curZ + (avgHeight - curZ) * smoothRate * v.falloff;
+                                positions.setZ(v.index, newZ);
+                            }
+                        }
+                        floorMesh.geometry.attributes.position.needsUpdate = true;
+                        floorMesh.geometry.computeVertexNormals();
+                    } 
+                    
+                    // ALAT 4 : GESER
+                    if (activeEditorTool === 4 && draggedAsset && isLeftMouseDown) {
+                        draggedAsset.position.copy(point);
+                    }
+
+                    // =========================================================
+                    // ALAT 5 (BARU) : LUKIS TEKSTUR LANTAI SECARA REAL-TIME!
+                    // =========================================================
+                    if (activeEditorTool === 5 && isLeftMouseDown && currentCustomTextureImage && uv) {
+                        
+                        // Kalkulasi dari meteran 3D ke ukuran piksel di Canvas
+                        // Ukuran canvas = 2048, lebar tanah = 200 unit meter
+                        const pxPerUnit = 2048 / 200; 
+                        const brushRadiusPx = editorBrushSize * pxPerUnit;
+                        
+                        const centerX = uv.x * 2048;
+                        const centerY = (1.0 - uv.y) * 2048; // UV sumbu Y terbalik dibanding Canvas
+
+                        floorCtx.save();
+                        
+                        // Membuat kliping (Stencil) agar hanya melukis area bulat di dalam kuas
+                        floorCtx.beginPath();
+                        floorCtx.arc(centerX, centerY, brushRadiusPx, 0, Math.PI * 2);
+                        floorCtx.clip();
+
+                        // Membuat corak (pattern) dari gambar PNG yang di-upload
+                        const pattern = floorCtx.createPattern(currentCustomTextureImage, 'repeat');
+                        
+                        // Memperkecil gambar tekstur agar tidak terlalu besar di tanah
+                        const scale = 0.5; 
+                        const matrix = new DOMMatrix().scale(scale, scale);
+                        pattern.setTransform(matrix);
+                        
+                        floorCtx.fillStyle = pattern;
+                        // Tempelkan gambarnya memenuhi seluruh lingkaran kliping
+                        floorCtx.fillRect(centerX - brushRadiusPx, centerY - brushRadiusPx, brushRadiusPx * 2, brushRadiusPx * 2);
+                        
+                        floorCtx.restore();
+                        
+                        // Beritahu mesin 3D bahwa gambar kanvas lantai sudah diupdate
+                        floorTex.needsUpdate = true;
+                    }
+                }
+
+            } else if (playerModel) {
+                
+                // SISTEM FISIKA MESH REAL-TIME
+                let allCollisionMeshes = [...baseObstacleMeshes];
+                placedAssetsList.forEach(a => allCollisionMeshes.push(a.mesh));
+                
+                let allTargets = [floorMesh, ...allCollisionMeshes];
+
+                yVelocity += gravity * delta;
+                
+                const downRay = new THREE.Raycaster(
+                    new THREE.Vector3(playerModel.position.x, playerModel.position.y + 1.5, playerModel.position.z),
+                    new THREE.Vector3(0, -1, 0),
+                    0, 10
+                );
+                const groundIntersects = downRay.intersectObjects(allTargets, true);
+                
+                let surfaceHeight = -Infinity;
+                if (groundIntersects.length > 0) {
+                    surfaceHeight = groundIntersects[0].point.y;
+                }
+
+                isGrounded = false;
+                let nextY = playerModel.position.y + yVelocity * delta;
+
+                if (nextY <= surfaceHeight) {
+                    yVelocity = 0;
+                    playerModel.position.y = surfaceHeight;
+                    isGrounded = true;
+                    jumpCount = 0;
+                } else {
+                    playerModel.position.y = nextY;
+                }
+
+                let currentSpeed = (keys.shift || isJoySprinting) ? moveSpeed * 1.8 : moveSpeed;
+                let moveX = joyMoveX, moveZ = joyMoveZ;
+                
+                if (keys.w) moveZ = -1; 
+                if (keys.s) moveZ = 1;
+                if (keys.a) moveX = -1;
+                if (keys.d) moveX = 1;
+
+                if (moveX !== 0 || moveZ !== 0) {
+                    let length = Math.sqrt(moveX*moveX + moveZ*moveZ);
+                    moveX /= length; moveZ /= length;
+
+                    let s = Math.sin(cameraAngle);
+                    let c = Math.cos(cameraAngle);
+                    
+                    let finalMoveX = (moveX * c + moveZ * s) * currentSpeed * delta;
+                    let finalMoveZ = (moveX * -s + moveZ * c) * currentSpeed * delta;
+
+                    let hitX = false;
+                    if (finalMoveX !== 0) {
+                        let dirX = new THREE.Vector3(Math.sign(finalMoveX), 0, 0);
+                        let rayX = new THREE.Raycaster(
+                            new THREE.Vector3(playerModel.position.x, playerModel.position.y + 1, playerModel.position.z),
+                            dirX, 0, 0.6 + Math.abs(finalMoveX) 
+                        );
+                        if (rayX.intersectObjects(allCollisionMeshes, true).length > 0) hitX = true;
+                    }
+                    if (!hitX) playerModel.position.x += finalMoveX;
+
+                    let hitZ = false;
+                    if (finalMoveZ !== 0) {
+                        let dirZ = new THREE.Vector3(0, 0, Math.sign(finalMoveZ));
+                        let rayZ = new THREE.Raycaster(
+                            new THREE.Vector3(playerModel.position.x, playerModel.position.y + 1, playerModel.position.z),
+                            dirZ, 0, 0.6 + Math.abs(finalMoveZ)
+                        );
+                        if (rayZ.intersectObjects(allCollisionMeshes, true).length > 0) hitZ = true;
+                    }
+                    if (!hitZ) playerModel.position.z += finalMoveZ;
+                    
+                    let targetAngle = Math.atan2(finalMoveX, finalMoveZ) + Math.PI;
+                    let targetQuaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), targetAngle);
+                    playerModel.quaternion.slerp(targetQuaternion, 0.15);
+                }
+
+                if (!isGrounded) playAnimation('jump');
+                else if (moveX !== 0 || moveZ !== 0) playAnimation(keys.shift || isJoySprinting ? 'run' : 'walk');
+                else playAnimation('idle');
+
+                const camDistance = 6;
+                const camOffsetX = Math.sin(cameraAngle) * Math.cos(cameraPitch) * camDistance;
+                const camOffsetY = -Math.sin(cameraPitch) * camDistance + 3;
+                const camOffsetZ = Math.cos(cameraAngle) * Math.cos(cameraPitch) * camDistance;
+
+                const lookAtPos = new THREE.Vector3(playerModel.position.x, playerModel.position.y + 1.5, playerModel.position.z);
+                camera.position.set(lookAtPos.x + camOffsetX, lookAtPos.y + camOffsetY, lookAtPos.z + camOffsetZ);
+                camera.lookAt(lookAtPos);
+            }
+
+            renderer.render(scene, camera);
+
+            if (playerModel) {
+                const oldFog = scene.fog;
+                scene.fog = null;
+                minimapRenderer.render(scene, minimapCamera);
+                scene.fog = oldFog; 
+            }
+        }
+    </script>
+</body>
+</html>
