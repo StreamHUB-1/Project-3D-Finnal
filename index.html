@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Final 3D By Roppan</title>
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+    <!-- Tombol Saklar Mode -->
+    <button id="btn-toggle-mode" class="btn-mode">🎮 MODE: BERMAIN (Klik untuk ubah)</button>
+    <button id="btn-mobile-menu">MENU</button>
+
+    <div id="blocker">
+        <h2 class="pause-title">Pilih Peran Anda:</h2>
+
+        <!-- PEMILIHAN ROLE -->
+        <div id="role-selection">
+            <div class="role-card" id="role-player">
+                <h2>PLAYER</h2>
+                <p>Mainkan game, berlari, melompat, dan bereksplorasi tanpa merubah dunia.</p>
+            </div>
+            <div class="role-card" id="role-developer">
+                <h2>DEVELOPER</h2>
+                <p>Akses penuh. Pahat gunung, tambahkan karakter, upload tekstur, dan sebar objek.</p>
+            </div>
+        </div>
+
+        <!-- Wadah UI Kaca Utama -->
+        <div class="pause-container" id="ui-container">
+            <div class="tabs-sidebar" id="sidebar-tabs">
+                <button class="tab-btn active dev-only" data-target="tab-karakter">Karakter Pemain</button>
+                <button class="tab-btn dev-only" data-target="tab-assets">Tambahkan Assets</button>
+                <button class="tab-btn dev-only" data-target="tab-environment">Lingkungan (Map)</button>
+                <button class="tab-btn player-active" data-target="tab-settings">Pengaturan</button>
+            </div>
+
+            <!-- TAB 1: KARAKTER -->
+            <div id="tab-karakter" class="tab-content active dev-only-content">
+                <div id="drop-zone-karakter" class="drop-zone-glass">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <span id="drop-text-karakter">Tarik File Karakter<br>(.glb / .gltf)</span>
+                </div>
+                <div class="anim-config-menu" id="anim-config-menu" style="display: none;">
+                    <h3>Sistem Animasi</h3>
+                    <div class="config-row"><label>Diam (Idle):</label><select id="sel-idle"><option value="">-- Pilih --</option></select></div>
+                    <div class="config-row"><label>Jalan (Walk):</label><select id="sel-walk"><option value="">-- Pilih --</option></select></div>
+                    <div class="config-row"><label>Lari (Run):</label><select id="sel-run"><option value="">-- Pilih --</option></select></div>
+                    <div class="config-row"><label>Lompat (Jump):</label><select id="sel-jump"><option value="">-- Pilih --</option></select></div>
+                </div>
+            </div>
+
+            <!-- TAB 2: ASSETS -->
+            <div id="tab-assets" class="tab-content dev-only-content">
+                <div style="display: flex; gap: 15px;">
+                    <div id="drop-zone-assets" class="drop-zone-glass">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                        <span id="drop-text-assets">Tarik File World<br>(.glb / .gltf)</span>
+                    </div>
+                    <div id="drop-zone-fbx" class="drop-zone-glass">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                        <span id="drop-text-fbx">Tarik File World<br>(.fbx)</span>
+                    </div>
+                </div>
+                <div class="anim-config-menu" style="color: #bbb; font-size: 12px; line-height: 1.6; max-width: 180px;">
+                    <p>Asset 3D yang diunggah akan masuk ke dalam <b>Hotbar Mode Editor (Q/E)</b> untuk diletakkan ke dunia.</p>
+                </div>
+            </div>
+
+            <!-- TAB 3: ENVIRONMENT -->
+            <div id="tab-environment" class="tab-content dev-only-content">
+                <div id="drop-zone-texture" class="drop-zone-glass">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    <span id="drop-text-texture">Tarik Gambar<br>(.png / .jpg)</span>
+                </div>
+                <div class="anim-config-menu" style="width: 220px;">
+                    <h3>Kumpulan Texture</h3>
+                    <div id="texture-gallery" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; max-width: 100%;">
+                        <span style="color:#aaa; font-size:11px;">Belum ada tekstur.</span>
+                    </div>
+                    <p style="color: #aaa; font-size: 11px; margin-top: 10px; line-height: 1.4;">*Klik tekstur lalu tahan klik kiri di map untuk mewarnai tanah sesuai lingkaran kuas.</p>
+                </div>
+            </div>
+
+            <!-- TAB 4: SETTINGS -->
+            <div id="tab-settings" class="tab-content">
+                <div class="anim-config-menu" style="width: 100%; align-items:center;">
+                    <h3 style="text-align:center;">Pengaturan Permainan</h3>
+                    <div class="config-row" style="width:100%; justify-content:center; gap:20px;">
+                        <label>Tipe Kontrol:</label>
+                        <select id="sel-control-type" style="width: 150px;">
+                            <option value="pc">PC (Keyboard/Mouse)</option>
+                            <option value="mobile">HP (Touchscreen)</option>
+                        </select>
+                    </div>
+                    <div class="config-row" style="width:100%; justify-content:center; gap:20px;">
+                        <label>Siklus Waktu:</label>
+                        <select id="sel-time-cycle" style="width: 150px;">
+                            <option value="auto">Berjalan Otomatis</option>
+                            <option value="00">Jam 00:00 (Tengah Malam)</option>
+                            <option value="03">Jam 03:00 (Dini Hari)</option>
+                            <option value="06">Jam 06:00 (Fajar)</option>
+                            <option value="09">Jam 09:00 (Pagi)</option>
+                            <option value="12">Jam 12:00 (Tengah Hari)</option>
+                            <option value="15">Jam 15:00 (Sore Terang)</option>
+                            <option value="18">Jam 18:00 (Senja/Sunset)</option>
+                            <option value="21">Jam 21:00 (Malam)</option>
+                        </select>
+                    </div>
+                    <p style="color: #aaa; font-size: 11px; text-align:center; margin-bottom: 20px;">*Klik layar gelap di luar kaca untuk melanjutkan permainan.</p>
+                    <hr style="width:100%; border-color:rgba(255,255,255,0.2); margin-bottom:20px;">
+                    <button id="btn-logout" style="background: rgba(255, 0, 0, 0.4); border:1px solid rgba(255,255,255,0.3); padding: 10px 30px; border-radius: 8px; font-weight:bold; width: 100%;">LOGOUT (Ganti Role)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- HUD EDITOR -->
+    <div id="editor-hud">
+        <h3>🌍 WORLD EDITOR</h3>
+        <p class="tool-info" id="info-tool-1">[ 1 ] Gunung <span class="hint-text">Kiri: Angkat | Kanan: Haluskan | [ / ] : Skala</span></p>
+        <p class="tool-info" id="info-tool-2">[ 2 ] Lembah <span class="hint-text">Kiri: Gali | Kanan: Haluskan | [ / ] : Skala</span></p>
+        <p class="tool-info" id="info-tool-3">[ 3 ] Letakkan Asset <span class="hint-text">Pilih Hotbar: Q / E | Kiri: Letakkan.</span></p>
+        <p class="tool-info" id="info-tool-4">[ 4 ] Edit / Geser Asset <span class="hint-text">Tahan Kiri: Geser | Klik Kanan: Hapus | Scroll: Skala</span></p>
+        <p class="tool-info" id="info-tool-5">[ 5 ] Kuas Tekstur Lahan <span class="hint-text">Tahan Kiri di tanah untuk mewarnai.</span></p>
+        <hr style="border-color: rgba(255,255,255,0.2); margin: 10px 0;">
+        <p style="margin:0; font-size: 12px; color:#aaa;">Terbang: WASD | Naik: Spasi | Turun: Shift</p>
+    </div>
+
+    <!-- UI PEMILIH KATEGORI ASSET (TOOL 3) -->
+    <div id="category-bar"></div>
+
+    <div id="hotbar-container"></div>
+    <div id="crosshair">+</div>
+
+    <!-- KONTROL MOBILE -->
+    <div id="mobile-controls">
+        <div id="touch-look-zone"></div>
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+        <div id="action-buttons">
+            <button id="btn-mob-alt" class="btn-mobile-action">LARI</button>
+            <button id="btn-mob-main" class="btn-mobile-action">LOMPAT</button>
+        </div>
+    </div>
+
+    <!-- MINIMAP HUD -->
+    <div id="minimap-container">
+        <div id="minimap-box" style="border-radius: 50%; overflow: hidden;">
+            <div id="minimap-render-target" style="width: 100%; height: 100%;"></div>
+            <div class="compass-label compass-n">N</div>
+            <div class="compass-label compass-e">E</div>
+            <div class="compass-label compass-s">S</div>
+            <div class="compass-label compass-w">W</div>
+
+            <svg id="minimap-view-cone" viewBox="0 0 100 100" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9; transform-origin: 50% 50%;">
+                <polygon points="50,50 15,0 85,0" fill="url(#cone-grad)" opacity="0.6"/>
+                <defs>
+                    <linearGradient id="cone-grad" x1="0%" y1="100%" x2="0%" y2="0%">
+                        <stop offset="0%" stop-color="#fff" stop-opacity="1" />
+                        <stop offset="100%" stop-color="#fff" stop-opacity="0" />
+                    </linearGradient>
+                </defs>
+            </svg>
+            <div id="minimap-player-blip"></div>
+        </div>
+    </div>
+    
+    <div id="status-hud">
+        <div class="hud-text time-text" id="hud-time">☀️ 12:00</div>
+        <div class="hud-text coord-text" id="hud-coords">📍 X: 0 | Y: 0 | Z: 0</div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
