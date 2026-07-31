@@ -22,8 +22,6 @@ class Game {
         this.ui = new UIManager(this);
 
         this.prevTime = performance.now();
-        this.hudTime = document.getElementById('hud-time');
-        this.hudCoords = document.getElementById('hud-coords');
 
         this.scatterCooldown = 0;
 
@@ -127,7 +125,6 @@ class Game {
         windUniforms.time.value += delta;
 
         this.timeCycle.update(delta);
-        if (this.hudTime) this.hudTime.innerText = this.timeCycle.getFormattedTime();
 
         if (this.ui.isEditorMode && this.ui.currentRole === 'developer') {
             this.updateEditorControls(delta);
@@ -136,11 +133,13 @@ class Game {
             this.updateCameraFollowPlayer();
         }
 
-        if (this.player.model && this.hudCoords) {
+        if (this.player.model) {
             let px = Math.round(this.player.model.position.x);
             let py = Math.round(this.player.model.position.y);
             let pz = Math.round(this.player.model.position.z);
-            this.hudCoords.innerText = `📍 X: ${px} | Y: ${py} | Z: ${pz}`;
+            
+            // Panggil pembaharuan Kompas FPS dan Koordinat di Tengah Atas
+            this.ui.updateFPSCompass(this.input.cameraAngle, px, py, pz);
             this.minimap.update(this.player.model.position, this.input.cameraAngle);
         }
 
@@ -289,8 +288,6 @@ class Game {
                         if (template) {
                             const isFoliageGrass = assetName.toLowerCase().match(/(grass|bush|flower|plant|clover)/);
                             
-                            // UPDATE MATEMATIKA ANTI-CRASH (Batas Maksimal 50 Kepadatan)
-                            // Makin padat makin cepat spawn, dibatasi minimal 0.005 detik per spawn agar game tidak hang
                             this.scatterCooldown = isFoliageGrass ? Math.max(0.005, 0.2 - (this.ui.brushDensity * 0.0039)) : 0.15;
 
                             const r = this.ui.editorBrushSize * Math.sqrt(Math.random());
@@ -300,7 +297,6 @@ class Game {
                             
                             const randomScale = this.ui.brushMinScale + Math.random() * (this.ui.brushMaxScale - this.ui.brushMinScale);
 
-                            // UPDATE JARAK AMAN (Bisa numpuk sangat rapat hingga 0.1 meter)
                             let spacing = isFoliageGrass ? Math.max(0.1, 2.5 - (this.ui.brushDensity * 0.048)) : 3.5;
                             let safeDistance = randomScale * spacing;
                             
