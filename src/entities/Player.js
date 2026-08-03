@@ -1,23 +1,27 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// Variabel global untuk mengatur waktu animasi angin
+// Variabel global untuk mengatur waktu animasi angin pada material
 export const windUniforms = { time: { value: 0 } };
-// Variabel global untuk mengirim posisi player ke shader rumput (Efek Injak)
+// Variabel global untuk mengirim posisi player ke shader rumput (Efek Interaksi Injak)
 export const interactionUniforms = { playerPos: { value: new THREE.Vector3(0, -1000, 0) } };
 
 /**
- * Pengelola Karakter Pemain (Animasi, Pergerakan, Fisika, & Interaksi Alam)
+ * Pengelola Karakter Pemain
+ * Mengatasi logika fisika, animasi, pergerakan dengan inersia, serta interaksi lingkungan.
  */
 export class Player {
     constructor(scene) {
         this.scene = scene;
 
+        // Container utama model karakter
         this.model = new THREE.Group();
         this.model.position.set(0, 5, 10);
         this.scene.add(this.model);
 
+        // Parameter pergerakan & fisika
         this.moveSpeed = 8.0;
+        this.currentVelocity = new THREE.Vector3(); // Menyimpan kelajuan linier untuk efek inersia
         this.yVelocity = 0;
         this.isGrounded = false;
         this.jumpCount = 0;
@@ -25,15 +29,21 @@ export class Player {
         this.jumpForce = 15.0;
         this.wasSpacePressed = false;
 
+        // Parameter animasi
         this.mixer = null;
         this.animations = [];
         this.currentAction = null;
         this.animMap = { idle: null, walk: null, run: null, jump: null };
         this.currentAnimState = 'idle';
 
+        // Memuat model karakter utama
         this.loadGenshinCharacter('/assets/models/characters/Karakter_Gensin.glb');
     }
 
+    /**
+     * Memuat file model utama Genshin GLB
+     * @param {string} path - Jalur direktori aset model
+     */
     loadGenshinCharacter(path) {
         const fileName = path.split('/').pop();
         const loader = new GLTFLoader();
@@ -58,9 +68,9 @@ export class Player {
     }
 
     /**
-     * Memperbaiki pengaturan material pada aset 3D dan menginjeksi animasi angin secara spesifik
+     * Memperbaiki pengaturan material pada aset 3D dan menginjeksi animasi angin
      * @param {THREE.Object3D} model - Objek model 3D
-     * @param {string} fileName - Nama file aset (dioper dari UIManager) untuk filter cerdas
+     * @param {string} fileName - Nama file aset untuk filter material
      */
     applyMaterialFixes(model, fileName = '') {
         const fileStr = fileName.toLowerCase();
@@ -80,7 +90,6 @@ export class Player {
                         mat.userData.isFixed = true;
 
                         const matName = (mat.name || '').toLowerCase();
-                        
                         const combinedName = meshName + ' ' + matName + ' ' + fileStr;
 
                         const isCharacter = combinedName.includes('karakter') || combinedName.includes('gensin');
@@ -129,7 +138,7 @@ export class Player {
                                     `
                                     #include <begin_vertex>
                                     
-                                    // 1. Kalkulasi Rasio Tinggi Relatif (0.0 selalu di akar rumput, 1.0 selalu di ujung daun)
+                                    // 1. Kalkulasi Rasio Tinggi Relatif
                                     float normY = clamp((position.y - localMinY) / localHeight, 0.0, 1.0);
                                     
                                     vec4 worldPosWind = modelMatrix * vec4(position, 1.0);
@@ -145,21 +154,13 @@ export class Player {
                                     float windZ = cos(windTime * 1.5 + worldPosWind.x * 0.5 + worldPosWind.z * 0.5) * swayMultiplier;
                                     
                                     ${isPushable ? `
-                                    // ===================================================
-                                    // 3. EFEK FISIKA INTERAKSI INJAKAN PEMAIN (SAFE & FITTED PUSH)
-                                    // ===================================================
+                                    // 3. Efek Fisika Interaksi Injakan Pemain
                                     float distXZ = distance(worldPosWind.xz, playerPos.xz);
-                                    
-                                    // Cek jarak vertikal dari tinggi betis karakter
                                     float distY = abs(worldPosWind.y - (playerPos.y + 0.5));
-                                    
-                                    // PENGECILAN RADIUS: Disesuaikan dengan lebar karakter agar senggolan akurat
                                     float interactRadius = 0.85; 
                                     
                                     if (distXZ < interactRadius && distY < 1.5 && normY > 0.0) {
                                         float pushFactor = clamp(1.0 - (distXZ / interactRadius), 0.0, 1.0);
-                                        
-                                        // LIMITASI TENAGA: Maksimal 0.7 agar mesh tidak ketarik sampai robek (rusak)
                                         float pushStrength = pushFactor * pushFactor * 0.7; 
                                         
                                         vec2 pushDir = normalize(worldPosWind.xz - playerPos.xz);
@@ -170,7 +171,6 @@ export class Player {
                                         windX += pushDir.x * bend;
                                         windZ += pushDir.y * bend;
                                         
-                                        // EFEK REBAH: Menurunkan sedikit posisi Y daun yang terdorong agar terlihat menunduk diinjak, bukan cuma melar
                                         transformed.y -= (bend * 0.3);
                                     }
                                     ` : ''}
@@ -187,6 +187,11 @@ export class Player {
         });
     }
 
+    /**
+     * Memuat model kustom baru apabila diunggah oleh pengguna
+     * @param {GLTF} gltf - Objek GLTF terurai
+     * @param {string} fileName - Nama file model
+     */
     loadCustomCharacter(gltf, fileName = '') {
         while (this.model.children.length > 0) {
             this.model.remove(this.model.children[0]);
@@ -205,6 +210,9 @@ export class Player {
         }
     }
 
+    /**
+     * Mengatur elemen pemilih animasi di UI Editor
+     */
     setupAnimationSelects() {
         const menu = document.getElementById('anim-config-menu');
         if (menu) menu.style.display = 'flex';
@@ -244,32 +252,55 @@ export class Player {
                 selects[key].onchange = (e) => {
                     let idx = e.target.value;
                     this.animMap[key] = idx !== "" ? this.animations[idx] : null;
-                    if (this.currentAnimState === key) this.playAnimation(key);
+                    if (this.currentAnimState === key) {
+                        this.currentAnimState = null;
+                        this.playAnimation(key);
+                    }
                 };
             }
         }
         this.playAnimation('idle');
     }
 
+    /**
+     * Memainkan animasi karakter dengan transisi crossfade yang halus
+     * @param {string} state - Nama status animasi ('idle', 'walk', 'run', 'jump')
+     */
     playAnimation(state) {
         if (!this.mixer || this.currentAnimState === state) return;
-        this.currentAnimState = state;
+        
         const clip = this.animMap[state];
         if (!clip) return;
+
+        this.currentAnimState = state;
         const nextAction = this.mixer.clipAction(clip);
-        if (this.currentAction) this.currentAction.crossFadeTo(nextAction, 0.2, true);
+
+        if (this.currentAction) {
+            // Transisi halus berdurasi 0.2 detik antar animasi
+            this.currentAction.crossFadeTo(nextAction, 0.2, true);
+        }
+        
         nextAction.reset().play();
         this.currentAction = nextAction;
     }
 
+    /**
+     * Memperbarui fisika, pergerakan inersia, rotasi, dan deteksi daratan
+     * @param {number} delta - Selisih waktu antar frame
+     * @param {Object} inputState - Status input kontroler
+     * @param {number} cameraAngle - Sudut kamera horizontal
+     * @param {World} world - Objek lingkungan dunia
+     */
     updatePhysics(delta, inputState, cameraAngle, world) {
         if (!this.model) return;
 
+        // Update animasi mixer
         if (this.mixer) this.mixer.update(delta);
 
-        // Update Variabel Shader secara Real-Time dengan koordinat Player
+        // Update koordinat posisi pemain untuk interaksi shader rumput
         interactionUniforms.playerPos.value.copy(this.model.position);
 
+        // Logika Lompat
         if (inputState.keys.space && !this.wasSpacePressed) {
             if (this.jumpCount < 2) {
                 this.yVelocity = this.jumpForce;
@@ -279,13 +310,12 @@ export class Player {
         }
         this.wasSpacePressed = inputState.keys.space;
 
-        // FILTER: Buat objek rumput dan bunga menjadi TEMBUS PANDANG (Bisa dilewati)
+        // Menyusun daftar mesh rintangan dan lantai
         let allCollisionMeshes = [...world.baseObstacleMeshes];
         world.placedAssetsList.forEach(a => {
             const name = (a.mesh.name || '').toLowerCase();
             const isPassable = name.includes('grass') || name.includes('bush') || name.includes('flower') || name.includes('clover') || name.includes('plant');
             
-            // Masukkan ke sistem tabrakan HANYA JIKA objek tersebut bukan rumput/semak
             if (!isPassable) {
                 allCollisionMeshes.push(a.mesh);
             }
@@ -293,9 +323,10 @@ export class Player {
         
         let allTargets = [world.floorMesh, ...allCollisionMeshes];
 
+        // Gravitasi Vertikal
         this.yVelocity += this.gravity * delta;
 
-        // Membatasi raycaster agar hanya mendeteksi permukaan dari kaki ke bawah sedikit.
+        // Deteksi Pijakan Bawah (Ground Raycast)
         const downRay = new THREE.Raycaster(
             new THREE.Vector3(this.model.position.x, this.model.position.y + 1.0, this.model.position.z),
             new THREE.Vector3(0, -1, 0),
@@ -305,7 +336,6 @@ export class Player {
 
         let surfaceHeight = -Infinity;
         for (let i = 0; i < groundIntersects.length; i++) {
-            // Validasi Pintar: Hanya terima permukaan tanah yang posisinya berada di area lutut karakter ke bawah (y + 0.6).
             if (groundIntersects[i].point.y <= this.model.position.y + 0.6) {
                 surfaceHeight = groundIntersects[i].point.y;
                 break;
@@ -324,6 +354,7 @@ export class Player {
             this.model.position.y = nextY;
         }
 
+        // Kalkulasi Input Arah Arah (WASD / Analog Mobile)
         let currentSpeed = (inputState.keys.shift || inputState.isJoySprinting) ? this.moveSpeed * 1.8 : this.moveSpeed;
         let moveX = inputState.joyMoveX;
         let moveZ = inputState.joyMoveZ;
@@ -333,6 +364,9 @@ export class Player {
         if (inputState.keys.a) moveX = -1;
         if (inputState.keys.d) moveX = 1;
 
+        // Vektor Kecepatan Target
+        const targetVelocity = new THREE.Vector3(0, 0, 0);
+
         if (moveX !== 0 || moveZ !== 0) {
             let length = Math.sqrt(moveX * moveX + moveZ * moveZ);
             moveX /= length; moveZ /= length;
@@ -340,38 +374,62 @@ export class Player {
             let s = Math.sin(cameraAngle);
             let c = Math.cos(cameraAngle);
 
-            let finalMoveX = (moveX * c + moveZ * s) * currentSpeed * delta;
-            let finalMoveZ = (moveX * -s + moveZ * c) * currentSpeed * delta;
-
-            let hitX = false;
-            if (finalMoveX !== 0) {
-                let dirX = new THREE.Vector3(Math.sign(finalMoveX), 0, 0);
-                let rayX = new THREE.Raycaster(
-                    new THREE.Vector3(this.model.position.x, this.model.position.y + 1, this.model.position.z),
-                    dirX, 0, 0.6 + Math.abs(finalMoveX)
-                );
-                if (rayX.intersectObjects(allCollisionMeshes, true).length > 0) hitX = true;
-            }
-            if (!hitX) this.model.position.x += finalMoveX;
-
-            let hitZ = false;
-            if (finalMoveZ !== 0) {
-                let dirZ = new THREE.Vector3(0, 0, Math.sign(finalMoveZ));
-                let rayZ = new THREE.Raycaster(
-                    new THREE.Vector3(this.model.position.x, this.model.position.y + 1, this.model.position.z),
-                    dirZ, 0, 0.6 + Math.abs(finalMoveZ)
-                );
-                if (rayZ.intersectObjects(allCollisionMeshes, true).length > 0) hitZ = true;
-            }
-            if (!hitZ) this.model.position.z += finalMoveZ;
-
-            let targetAngle = Math.atan2(finalMoveX, finalMoveZ) + Math.PI;
-            let targetQuaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetAngle);
-            this.model.quaternion.slerp(targetQuaternion, 0.15);
+            targetVelocity.x = (moveX * c + moveZ * s) * currentSpeed;
+            targetVelocity.z = (moveX * -s + moveZ * c) * currentSpeed;
         }
 
-        if (!this.isGrounded) this.playAnimation('jump');
-        else if (moveX !== 0 || moveZ !== 0) this.playAnimation(inputState.keys.shift || inputState.isJoySprinting ? 'run' : 'walk');
-        else this.playAnimation('idle');
+        // AKSELERASI & DESELERASI HALUS (Inersia Pergerakan)
+        const lerpFactor = 1.0 - Math.exp(-12.0 * delta); // Independen terhadap FPS
+        this.currentVelocity.lerp(targetVelocity, lerpFactor);
+
+        // Penerapan Pergerakan Sumbu X dengan Raycast Tabrakan
+        let finalMoveX = this.currentVelocity.x * delta;
+        if (Math.abs(finalMoveX) > 0.0001) {
+            let dirX = new THREE.Vector3(Math.sign(finalMoveX), 0, 0);
+            let rayX = new THREE.Raycaster(
+                new THREE.Vector3(this.model.position.x, this.model.position.y + 1, this.model.position.z),
+                dirX, 0, 0.6 + Math.abs(finalMoveX)
+            );
+            if (rayX.intersectObjects(allCollisionMeshes, true).length === 0) {
+                this.model.position.x += finalMoveX;
+            } else {
+                this.currentVelocity.x = 0; // Hentikan inersia jika menabrak
+            }
+        }
+
+        // Penerapan Pergerakan Sumbu Z dengan Raycast Tabrakan
+        let finalMoveZ = this.currentVelocity.z * delta;
+        if (Math.abs(finalMoveZ) > 0.0001) {
+            let dirZ = new THREE.Vector3(0, 0, Math.sign(finalMoveZ));
+            let rayZ = new THREE.Raycaster(
+                new THREE.Vector3(this.model.position.x, this.model.position.y + 1, this.model.position.z),
+                dirZ, 0, 0.6 + Math.abs(finalMoveZ)
+            );
+            if (rayZ.intersectObjects(allCollisionMeshes, true).length === 0) {
+                this.model.position.z += finalMoveZ;
+            } else {
+                this.currentVelocity.z = 0; // Hentikan inersia jika menabrak
+            }
+        }
+
+        // ROTASI BERSKALA DELTA TIME (Mencegah Karakter Terbalik/Moonwalk)
+        if (this.currentVelocity.lengthSq() > 0.1) {
+            let targetAngle = Math.atan2(this.currentVelocity.x, this.currentVelocity.z) + Math.PI;
+            let targetQuaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetAngle);
+            
+            const rotateSpeed = 1.0 - Math.exp(-15.0 * delta);
+            this.model.quaternion.slerp(targetQuaternion, rotateSpeed);
+        }
+
+        // Manajemen Status Animasi Berdasarkan Gerakan Real-time
+        const horizontalSpeed = Math.sqrt(this.currentVelocity.x * this.currentVelocity.x + this.currentVelocity.z * this.currentVelocity.z);
+
+        if (!this.isGrounded) {
+            this.playAnimation('jump');
+        } else if (horizontalSpeed > 0.5) {
+            this.playAnimation(horizontalSpeed > this.moveSpeed * 1.2 ? 'run' : 'walk');
+        } else {
+            this.playAnimation('idle');
+        }
     }
 }
