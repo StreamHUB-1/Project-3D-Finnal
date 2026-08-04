@@ -39,12 +39,23 @@ export class PCController {
         for (let k in this.manager.keys) this.manager.keys[k] = false;
         this.manager.isLeftMouseDown = false;
         this.manager.isRightMouseDown = false;
+        this.manager.isAutoRun = false;
     }
 
     onKeyDown(e) {
         const key = e.key.toLowerCase();
         if (this.manager.keys.hasOwnProperty(key)) this.manager.keys[key] = true;
         if (e.code === 'Space') this.manager.keys.space = true;
+
+        // FITUR AUTO-RUN DI PC: Tekan tombol R untuk Toggle Auto-Run
+        if (e.code === 'KeyR') {
+            this.manager.toggleAutoRun();
+        }
+
+        // Otomatis batalkan Auto-Run jika pemain menekan S (Mundur)
+        if (e.code === 'KeyS') {
+            this.manager.isAutoRun = false;
+        }
     }
 
     onKeyUp(e) {

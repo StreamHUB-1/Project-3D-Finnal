@@ -13,11 +13,95 @@ export class MobileController {
         this.lookData = { active: false, identifier: null, lastX: 0, lastY: 0 };
         
         this.createUI();
+        this.createOrientationOverlay();
         
         // Inisialisasi Modul Editor Layout Custom
         this.layoutEditor = new MobileLayoutEditor(this);
 
         this.bindEvents();
+    }
+
+    /**
+     * Memperbarui tampilan tombol Auto-Run di Mobile HUD saat di-toggle
+     * @param {boolean} active - Status aktif Auto-Run
+     */
+    updateAutoRunUI(active) {
+        if (this.btnAutoRun) {
+            if (active) {
+                this.btnAutoRun.style.background = '#10b981';
+                this.btnAutoRun.style.borderColor = '#6ee7b7';
+                this.btnAutoRun.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.8)';
+            } else {
+                this.btnAutoRun.style.background = 'rgba(0,0,0,0.4)';
+                this.btnAutoRun.style.borderColor = 'rgba(255,255,255,0.3)';
+                this.btnAutoRun.style.boxShadow = 'none';
+            }
+        }
+    }
+
+    /**
+     * Mengaktifkan Mode Fullscreen HP (Mirip F11 di PC)
+     */
+    toggleFullscreen() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+            const docEl = document.documentElement;
+            if (docEl.requestFullscreen) {
+                docEl.requestFullscreen().catch(() => {});
+            } else if (docEl.webkitRequestFullscreen) {
+                docEl.webkitRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen().catch(() => {});
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            }
+        }
+    }
+
+    /**
+     * Membuat overlay peringatan rotasi layar saat dalam posisi Portrait
+     */
+    createOrientationOverlay() {
+        this.orientationOverlay = document.createElement('div');
+        this.orientationOverlay.id = 'orientation-overlay';
+        this.orientationOverlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #090d16; color: #ffffff; z-index: 999999;
+            display: none; flex-direction: column; justify-content: center;
+            align-items: center; text-align: center; padding: 20px;
+            box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif;
+        `;
+
+        this.orientationOverlay.innerHTML = `
+            <div style="font-size: 60px; margin-bottom: 20px; animation: rotatePhone 2s infinite ease-in-out;">📱</div>
+            <h2 style="font-size: 20px; font-weight: 800; color: #38bdf8; margin: 0 0 10px 0; letter-spacing: 1px;">MOHON MIRINGKAN HP ANDA</h2>
+            <p style="font-size: 13px; color: #94a3b8; max-width: 320px; margin: 0 0 20px 0; line-height: 1.5;">Putar perangkat ke mode Landscape untuk pengalaman bermain game 3D yang optimal.</p>
+            <button id="btn-force-fullscreen-overlay" style="padding: 10px 20px; background: #38bdf8; color: #0f172a; border: none; border-radius: 20px; font-weight: bold; cursor: pointer;">⛶ Buka Fullscreen</button>
+            <style>
+                @keyframes rotatePhone {
+                    0% { transform: rotate(0deg); }
+                    50% { transform: rotate(-90deg); }
+                    100% { transform: rotate(0deg); }
+                }
+            </style>
+        `;
+        document.body.appendChild(this.orientationOverlay);
+
+        const btnOverlayFS = this.orientationOverlay.querySelector('#btn-force-fullscreen-overlay');
+        if (btnOverlayFS) {
+            btnOverlayFS.onclick = () => this.toggleFullscreen();
+        }
+    }
+
+    /**
+     * Menampilkan atau menyembunyikan overlay rotasi landscape
+     * @param {boolean} show - True jika portrait (harus diputar)
+     */
+    toggleOrientationOverlay(show) {
+        if (this.orientationOverlay) {
+            this.orientationOverlay.style.display = (show && this.enabled) ? 'flex' : 'none';
+        }
     }
 
     createUI() {
@@ -35,8 +119,8 @@ export class MobileController {
         this.joyArea = document.createElement('div');
         this.joyArea.style.cssText = `position: absolute; top: 0; left: 0; width: 50vw; height: 100vh; pointer-events: auto;`;
 
-        // PENGGUNAAN SKALA OTOMATIS: transform: scale(var(--layout-scale, 1))
         this.joyBase = document.createElement('div');
+        this.joyBase.id = 'joyBase';
         this.joyBase.style.cssText = `
             position: absolute; left: 120px; top: calc(100vh - 120px); width: 120px; height: 120px;
             background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3);
@@ -55,38 +139,55 @@ export class MobileController {
         const btnStyle = `
             position: absolute; background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.3);
             border-radius: 50%; color: white; font-weight: bold; pointer-events: auto;
-            display: flex; justify-content: center; align-items: center; font-size: 12px; font-family: sans-serif; cursor: pointer;
-            transform: scale(var(--layout-scale, 1)); transform-origin: center;
+            display: flex; justify-content: center; align-items: center; font-size: 11px; font-family: sans-serif; cursor: pointer;
+            transform: scale(var(--layout-scale, 1)); transform-origin: center; transition: background 0.2s;
         `;
 
         this.btnJump = document.createElement('div');
+        this.btnJump.id = 'btnJump';
         this.btnJump.innerHTML = "JUMP";
         this.btnJump.style.cssText = btnStyle + `bottom: 40px; right: 40px; width: 70px; height: 70px;`;
 
         this.btnSprint = document.createElement('div');
+        this.btnSprint.id = 'btnSprint';
         this.btnSprint.innerHTML = "RUN";
         this.btnSprint.style.cssText = btnStyle + `bottom: 130px; right: 60px; width: 55px; height: 55px;`;
 
+        this.btnAutoRun = document.createElement('div');
+        this.btnAutoRun.id = 'btnAutoRun';
+        this.btnAutoRun.innerHTML = "AUTO";
+        this.btnAutoRun.style.cssText = btnStyle + `bottom: 190px; right: 60px; width: 50px; height: 50px; font-size: 10px;`;
+
         this.btnAction1 = document.createElement('div');
+        this.btnAction1.id = 'btnAction1';
         this.btnAction1.innerHTML = "ACT 1";
         this.btnAction1.style.cssText = btnStyle + `bottom: 40px; right: 130px; width: 60px; height: 60px;`;
 
         this.btnAction2 = document.createElement('div');
+        this.btnAction2.id = 'btnAction2';
         this.btnAction2.innerHTML = "ACT 2";
         this.btnAction2.style.cssText = btnStyle + `bottom: 100px; right: 160px; width: 50px; height: 50px;`;
 
         this.btnSettings = document.createElement('div');
+        this.btnSettings.id = 'btnSettings';
         this.btnSettings.innerHTML = "⚙️";
         this.btnSettings.style.cssText = btnStyle + `top: 20px; right: 20px; width: 45px; height: 45px; border-radius: 10px; font-size: 22px; z-index: 9999;`;
+
+        this.btnFullscreen = document.createElement('div');
+        this.btnFullscreen.id = 'btnFullscreen';
+        this.btnFullscreen.innerHTML = "⛶";
+        this.btnFullscreen.style.cssText = btnStyle + `top: 20px; right: 75px; width: 45px; height: 45px; border-radius: 10px; font-size: 22px; z-index: 9999;`;
 
         this.uiContainer.appendChild(this.lookArea);
         this.uiContainer.appendChild(this.joyArea);
         this.uiContainer.appendChild(this.joyBase);
         this.uiContainer.appendChild(this.btnJump);
         this.uiContainer.appendChild(this.btnSprint);
+        this.uiContainer.appendChild(this.btnAutoRun);
         this.uiContainer.appendChild(this.btnAction1);
         this.uiContainer.appendChild(this.btnAction2);
         this.uiContainer.appendChild(this.btnSettings);
+        this.uiContainer.appendChild(this.btnFullscreen);
         document.body.appendChild(this.uiContainer);
     }
 
@@ -102,7 +203,6 @@ export class MobileController {
             el.addEventListener('mouseleave', (e) => { e.preventDefault(); e.stopPropagation(); action(); });
         };
 
-        // BLOKIR AKSI JIKA SEDANG MODE EDIT LAYOUT
         const handleAction = (execute) => {
             if (this.layoutEditor && this.layoutEditor.isEditing) return;
             execute();
@@ -118,13 +218,22 @@ export class MobileController {
         bindBtn(this.btnAction1, () => { this.manager.isLeftMouseDown = true; }, () => { this.manager.isLeftMouseDown = false; });
         bindBtn(this.btnAction2, () => { this.manager.isRightMouseDown = true; }, () => { this.manager.isRightMouseDown = false; });
 
+        addPress(this.btnAutoRun, () => handleAction(() => {
+            this.manager.toggleAutoRun();
+        }));
+
         addPress(this.btnSettings, () => handleAction(() => {
             this.btnSettings.style.background = 'rgba(255,255,255,0.4)';
             document.dispatchEvent(new Event('openMobileMenu'));
         }));
         addRelease(this.btnSettings, () => handleAction(() => { this.btnSettings.style.background = 'rgba(0,0,0,0.4)'; }));
 
-        // GERAK ANALOG KIRI
+        addPress(this.btnFullscreen, () => handleAction(() => {
+            this.btnFullscreen.style.background = 'rgba(255,255,255,0.4)';
+            this.toggleFullscreen();
+        }));
+        addRelease(this.btnFullscreen, () => handleAction(() => { this.btnFullscreen.style.background = 'rgba(0,0,0,0.4)'; }));
+
         const handleJoyStart = (e) => {
             if (this.layoutEditor && this.layoutEditor.isEditing) return;
             e.preventDefault();
@@ -137,8 +246,7 @@ export class MobileController {
             this.joystickData.originX = touch.clientX;
             this.joystickData.originY = touch.clientY;
             
-            // Kunci posisi dasar jika HUD sudah dicustom
-            const data = this.layoutEditor.layoutData['joyBase'];
+            const data = this.layoutEditor ? this.layoutEditor.layoutData['joyBase'] : null;
             if (!data) {
                 this.joyBase.style.left = touch.clientX + 'px';
                 this.joyBase.style.top = touch.clientY + 'px';
@@ -176,6 +284,11 @@ export class MobileController {
                 
                 this.manager.joyMoveX = dx / maxDist;
                 this.manager.joyMoveZ = dy / maxDist;
+
+                if (dist > 10 && this.manager.isAutoRun) {
+                    this.manager.isAutoRun = false;
+                    this.updateAutoRunUI(false);
+                }
             }
         };
 
@@ -198,8 +311,7 @@ export class MobileController {
                 this.manager.joyMoveZ = 0;
                 this.joyStick.style.transform = 'translate(-50%, -50%)';
                 
-                // Balikkan base ke posisi default atau posisi custom layout
-                const data = this.layoutEditor.layoutData['joyBase'];
+                const data = this.layoutEditor ? this.layoutEditor.layoutData['joyBase'] : null;
                 if (!data) {
                     this.joyBase.style.left = '120px';
                     this.joyBase.style.top = 'calc(100vh - 120px)';
@@ -217,7 +329,6 @@ export class MobileController {
         this.joyArea.addEventListener('mouseup', handleJoyEnd);
         this.joyArea.addEventListener('mouseleave', handleJoyEnd);
 
-        // KAMERA KANAN
         const handleLookStart = (e) => {
             if (this.layoutEditor && this.layoutEditor.isEditing) return;
             e.preventDefault();
@@ -290,9 +401,18 @@ export class MobileController {
     enable() {
         if (this.enabled) return;
         this.enabled = true;
-        this.uiContainer.style.display = 'block';
-        // Terapkan layout khusus jika ada yang disimpan
-        if(this.layoutEditor) this.layoutEditor.applyLayout();
+
+        // Hanya tampilkan UI jika pemain sudah memilih role
+        if (this.manager && this.manager.uiManager && this.manager.uiManager.currentRole) {
+            this.uiContainer.style.display = 'block';
+        } else {
+            this.uiContainer.style.display = 'none';
+        }
+
+        const isPortrait = window.innerHeight > window.innerWidth;
+        this.toggleOrientationOverlay(isPortrait);
+
+        if (this.layoutEditor) this.layoutEditor.applyLayout();
     }
 
     disable() {
@@ -300,16 +420,20 @@ export class MobileController {
         this.enabled = false;
         this.uiContainer.style.display = 'none';
         
+        if (this.orientationOverlay) this.orientationOverlay.style.display = 'none';
+
         this.joystickData.active = false;
         this.lookData.active = false;
         this.manager.joyMoveX = 0;
         this.manager.joyMoveZ = 0;
         this.manager.isJoySprinting = false;
+        this.manager.isAutoRun = false;
+        this.updateAutoRunUI(false);
         this.manager.keys.space = false;
         this.manager.isLeftMouseDown = false;
         this.manager.isRightMouseDown = false;
         
-        const data = this.layoutEditor.layoutData['joyBase'];
+        const data = this.layoutEditor ? this.layoutEditor.layoutData['joyBase'] : null;
         if (!data) {
             this.joyBase.style.left = '120px';
             this.joyBase.style.top = 'calc(100vh - 120px)';

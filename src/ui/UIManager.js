@@ -7,6 +7,10 @@ import { PlayerSettings } from './PlayerSettings.js';
 export class UIManager {
     constructor(game) {
         this.game = game;
+        if (this.game && this.game.input) {
+            this.game.input.uiManager = this;
+        }
+
         this.currentRole = null;
         this.isEditorMode = false;
         this.activeEditorTool = 1;
@@ -39,7 +43,7 @@ export class UIManager {
 
         this.playerSettings = new PlayerSettings(this.game, this);
 
-        this.initLoadingUI();
+        this.initLoadingScreenUI();
         this.initFPSCompassUI();
         this.initBrushMarker();
         this.initUIEvents();
@@ -49,7 +53,6 @@ export class UIManager {
 
         this.autoLoadCategoryModels();
 
-        // PENYELARASAN TUNDA: Terapkan layout khusus ke elemen yang telat di-render (seperti kompas)
         setTimeout(() => {
             if (this.game && this.game.input && this.game.input.controlType === 'mobile' && this.game.input.mobileController) {
                 this.game.input.mobileController.layoutEditor.applyLayout();
@@ -57,17 +60,71 @@ export class UIManager {
         }, 100);
     }
 
-    initLoadingUI() {
-        this.loadingOverlay = document.createElement('div');
-        this.loadingOverlay.style.cssText = `
-            position: fixed; bottom: 20px; right: 20px;
-            background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.18); color: #38bdf8;
-            padding: 10px 18px; border-radius: 12px; font-size: 11px; font-weight: 600;
-            z-index: 9999; display: none; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            pointer-events: none; letter-spacing: 0.8px; font-family: 'Segoe UI', Roboto, sans-serif;
-        `;
-        document.body.appendChild(this.loadingOverlay);
+    initLoadingScreenUI() {
+        this.loadingScreen = document.getElementById('game-loading-screen');
+        this.loadingTaskName = document.getElementById('loading-task-name');
+        this.loadingPercentText = document.getElementById('loading-percent-text');
+        this.loadingBarFill = document.getElementById('loading-bar-fill');
+        this.loadingTips = document.getElementById('loading-tips');
+
+        const tipsList = [
+            "Tips: Gunakan mode Developer untuk menata bangunan dan vegetasi sesukamu!",
+            "Tips: Tekan tombol [ ~ ] untuk melepaskan kursor mouse secara instan.",
+            "Tips: Tahan tombol SHIFT saat berlari untuk berpindah posisi lebih cepat!",
+            "Tips: Pilih peran Player jika kamu ingin menjelajah dunia secara murni."
+        ];
+
+        let tipIndex = 0;
+        setInterval(() => {
+            if (this.loadingTips) {
+                tipIndex = (tipIndex + 1) % tipsList.length;
+                this.loadingTips.innerText = tipsList[tipIndex];
+            }
+        }, 4000);
+    }
+
+    updateLoadingProgress(percent, rawUrlOrName = "") {
+        let cleanText = "Memuat Aset Dunia...";
+        const lower = rawUrlOrName.toLowerCase();
+
+        if (lower.includes("main_map") || lower.includes("map")) {
+            cleanText = "Memuat: Map Utama...";
+        } else if (lower.includes("karakter") || lower.includes("gensin")) {
+            cleanText = "Memuat: Karakter Pemain...";
+        } else if (lower.includes("texture") || lower.includes("png") || lower.includes("jpg")) {
+            cleanText = "Memuat: Tekstur...";
+        } else if (rawUrlOrName.length > 0) {
+            cleanText = "Memuat: Aset Dunia...";
+        }
+
+        if (this.loadingTaskName) this.loadingTaskName.innerText = cleanText;
+        if (this.loadingPercentText) this.loadingPercentText.innerText = `${Math.round(percent)}%`;
+        if (this.loadingBarFill) this.loadingBarFill.style.width = `${percent}%`;
+    }
+
+    hideLoadingScreen() {
+        if (this.loadingScreen) {
+            this.updateLoadingProgress(100, "Siap Dimulai!");
+            setTimeout(() => {
+                this.loadingScreen.classList.add('fade-out');
+                
+                // Jika belum memilih role, paksa tampilkan menu Pemilihan Peran (Player/Developer) lebih dulu
+                if (!this.currentRole) {
+                    const blocker = document.getElementById('blocker');
+                    const roleSelection = document.getElementById('role-selection');
+                    const uiContainer = document.getElementById('ui-container');
+                    
+                    if (blocker) blocker.style.display = 'flex';
+                    if (roleSelection) roleSelection.style.display = 'flex';
+                    if (uiContainer) uiContainer.style.display = 'none';
+
+                    // Sembunyikan tombol mobile HUD sampai peran dipilih
+                    if (this.game && this.game.input && this.game.input.mobileController) {
+                        this.game.input.mobileController.uiContainer.style.display = 'none';
+                    }
+                }
+            }, 600);
+        }
     }
 
     initFPSCompassUI() {
@@ -190,16 +247,12 @@ export class UIManager {
         }
 
         if (queue.length > 0) {
-            this.loadingOverlay.style.display = 'block';
             let loadedCount = 0;
             for (const item of queue) {
-                this.loadingOverlay.innerText = `⏳ Memuat Aset 3D: ${loadedCount} / ${queue.length} (${item.fileName})`;
                 await this.loadModelFromUrlAsync(item.url, item.fileName, item.category);
                 loadedCount++;
                 await new Promise(resolve => setTimeout(resolve, 10));
             }
-            this.loadingOverlay.innerText = `✅ Selesai memuat ${loadedCount} aset!`;
-            setTimeout(() => { this.loadingOverlay.style.display = 'none'; }, 3000);
             console.log(`[AssetLoader] Sistem berhasil memindai dan memuat ${loadedCount} file model 3D.`);
         }
     }
@@ -321,20 +374,7 @@ export class UIManager {
 
         this.playerSettings.updateUIMode();
 
-        if (this.currentRole === 'player') {
-            if (uiContainer) uiContainer.style.display = 'none';
-            const pt = document.querySelector('.pause-title');
-            if (pt) pt.style.display = 'none';
-            this.playerSettings.modal.style.display = 'flex';
-        } else if (this.currentRole === 'developer') {
-            if (uiContainer) uiContainer.style.display = 'flex';
-            this.playerSettings.modal.style.display = 'none';
-            const pt = document.querySelector('.pause-title');
-            if (pt) {
-                pt.style.display = 'block';
-                pt.innerText = "Klik layar gelap di luar kotak kaca untuk melanjutkan";
-            }
-        } else {
+        if (!this.currentRole) {
             if (roleSelection) roleSelection.style.display = 'flex';
             if (uiContainer) uiContainer.style.display = 'none';
             this.playerSettings.modal.style.display = 'none';
@@ -343,10 +383,27 @@ export class UIManager {
                 pt.style.display = 'block';
                 pt.innerText = "Pilih Peran Anda:";
             }
+        } else if (this.currentRole === 'player') {
+            if (uiContainer) uiContainer.style.display = 'none';
+            if (roleSelection) roleSelection.style.display = 'none';
+            const pt = document.querySelector('.pause-title');
+            if (pt) pt.style.display = 'none';
+            this.playerSettings.modal.style.display = 'flex';
+        } else if (this.currentRole === 'developer') {
+            if (uiContainer) uiContainer.style.display = 'flex';
+            if (roleSelection) roleSelection.style.display = 'none';
+            this.playerSettings.modal.style.display = 'none';
+            const pt = document.querySelector('.pause-title');
+            if (pt) {
+                pt.style.display = 'block';
+                pt.innerText = "Klik layar gelap di luar kotak kaca untuk melanjutkan";
+            }
         }
     }
 
     resumeGame() {
+        if (!this.currentRole) return; // Mencegah masuk ke game jika belum pilih role
+
         this.isCursorOnlyMode = false;
         
         if (this.game && this.game.input && this.game.input.controlType === 'mobile') {
@@ -378,6 +435,24 @@ export class UIManager {
         const editorHud = document.getElementById('editor-hud');
         const hotbar = document.getElementById('hotbar-container');
         const categoryBar = document.getElementById('category-bar');
+
+        const selTimeCycle = document.getElementById('sel-time-cycle');
+        if (selTimeCycle) {
+            selTimeCycle.onchange = (e) => {
+                if (this.game && this.game.timeCycle) {
+                    this.game.timeCycle.timeMode = e.target.value;
+                }
+            };
+        }
+
+        const selControlType = document.getElementById('sel-control-type');
+        if (selControlType) {
+            selControlType.onchange = (e) => {
+                if (this.game && this.game.input) {
+                    this.game.input.setControlType(e.target.value);
+                }
+            };
+        }
 
         if (editorHud && !document.getElementById('info-tool-6')) {
             const hr = editorHud.querySelector('hr');
@@ -448,6 +523,8 @@ export class UIManager {
         };
 
         document.addEventListener('pointerlockchange', () => {
+            if (!this.currentRole) return;
+
             if (document.pointerLockElement === document.body) {
                 this.isCursorOnlyMode = false;
                 blocker.style.display = 'none';
@@ -510,6 +587,11 @@ export class UIManager {
         const btnSet = document.getElementById('btn-open-settings');
         if (btnSet) btnSet.style.display = 'none';
         
+        // Sembunyikan kontrol HP saat logout
+        if (this.game && this.game.input && this.game.input.mobileController) {
+            this.game.input.mobileController.uiContainer.style.display = 'none';
+        }
+
         document.getElementById('role-selection').style.display = 'flex';
         document.getElementById('blocker').style.display = 'flex';
         const pt = document.querySelector('.pause-title');
@@ -579,7 +661,6 @@ export class UIManager {
     setRole(role) {
         this.currentRole = role;
         document.getElementById('role-selection').style.display = 'none';
-        this.resumeGame();
 
         if (role === 'player') {
             document.getElementById('btn-toggle-mode').style.display = 'none';
@@ -588,6 +669,8 @@ export class UIManager {
             document.getElementById('btn-toggle-mode').style.display = 'block';
             document.querySelectorAll('.dev-only').forEach(el => el.style.display = 'block');
         }
+
+        this.resumeGame();
     }
 
     initDropZones() {

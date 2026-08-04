@@ -14,6 +14,8 @@ export class TimeCycle {
         this.timeMode = 'auto';
 
         this.sunSphere = new THREE.Vector3();
+        this.hudTimeElement = null;
+
         this.buildSky();
     }
 
@@ -99,6 +101,14 @@ export class TimeCycle {
         if (this.stars) {
             this.stars.material.opacity = Math.max(0, -sunHeight * 2);
         }
+
+        // PERBAIKAN: Update teks Jam di HUD bawah minimap secara Real-time
+        if (!this.hudTimeElement) {
+            this.hudTimeElement = document.getElementById('hud-time');
+        }
+        if (this.hudTimeElement) {
+            this.hudTimeElement.innerText = this.getFormattedTime();
+        }
     }
 
     getFormattedTime() {
@@ -107,6 +117,6 @@ export class TimeCycle {
         let m = Math.floor((hoursFloat - h) * 60);
         let timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         let icon = (h >= 6 && h < 18) ? '☀️' : '🌙';
-        return `${icon} WAKTU: ${timeStr}`;
+        return `${icon} ${timeStr}`;
     }
 }

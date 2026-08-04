@@ -14,15 +14,37 @@ import { UIManager } from './ui/UIManager.js';
 class Game {
     constructor() {
         this.engine = new GameEngine();
+
+        // SISIPKAN THREE.LoadingManager UNTUK TRACKING PROGRESS DOWNLOAD MAP & KARAKTER
+        this.loadingManager = new THREE.LoadingManager(
+            // 1. Callback OnLoad (100% Selesai)
+            () => {
+                console.log("[GameLoading] Seluruh aset utama berhasil dimuat!");
+                if (this.ui) {
+                    this.ui.hideLoadingScreen();
+                }
+            },
+            // 2. Callback OnProgress (Proses Berjalan)
+            (url, itemsLoaded, itemsTotal) => {
+                const percent = (itemsLoaded / itemsTotal) * 100;
+                if (this.ui) {
+                    this.ui.updateLoadingProgress(percent, url);
+                }
+            },
+            // 3. Callback OnError
+            (url) => {
+                console.error("[GameLoading] Gagal memuat aset dari URL:", url);
+            }
+        );
+
         this.timeCycle = new TimeCycle(this.engine.scene, this.engine.dirLight, this.engine.hemiLight);
         this.minimap = new Minimap(this.engine.scene);
-        this.world = new World(this.engine.scene);
-        this.player = new Player(this.engine.scene);
+        this.world = new World(this.engine.scene, this.loadingManager);
+        this.player = new Player(this.engine.scene, this.loadingManager);
         this.input = new InputManager();
         this.ui = new UIManager(this);
 
         this.prevTime = performance.now();
-
         this.scatterCooldown = 0;
 
         this.initEditorClickEvents();
@@ -38,7 +60,7 @@ class Game {
             raycaster.setFromCamera(new THREE.Vector2(0, 0), this.engine.camera);
 
             if (this.ui.activeEditorTool === 3 && e.button === 0) {
-                const floorIntersects = raycaster.intersectObject(this.world.floorMesh);
+                const floorIntersects = raycaster.intersectObject(this.world.floorMesh, true);
                 if (floorIntersects.length > 0 && this.ui.hotbarAssetNames.length > 0) {
                     const point = floorIntersects[0].point;
                     const assetName = this.ui.hotbarAssetNames[this.ui.activeHotbarIndex];
@@ -221,7 +243,7 @@ class Game {
 
         const raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(new THREE.Vector2(0, 0), this.engine.camera);
-        const floorIntersects = raycaster.intersectObject(this.world.floorMesh);
+        const floorIntersects = raycaster.intersectObject(this.world.floorMesh, true);
 
         if (floorIntersects.length > 0) {
             const point = floorIntersects[0].point;
@@ -251,7 +273,7 @@ class Game {
 
                     if (distToBrush <= this.ui.editorBrushSize + 1.5) {
                         snapRay.set(new THREE.Vector3(assetPos.x, 500, assetPos.z), downVec);
-                        const hits = snapRay.intersectObject(this.world.floorMesh);
+                        const hits = snapRay.intersectObject(this.world.floorMesh, true);
                         if (hits.length > 0) {
                             a.mesh.position.y = hits[0].point.y;
                             a.mesh.updateMatrixWorld(true);
@@ -312,7 +334,7 @@ class Game {
 
                             if (canSpawn) {
                                 const scatterRay = new THREE.Raycaster(new THREE.Vector3(spawnX, 200, spawnZ), new THREE.Vector3(0, -1, 0));
-                                const hits = scatterRay.intersectObject(this.world.floorMesh);
+                                const hits = scatterRay.intersectObject(this.world.floorMesh, true);
 
                                 if (hits.length > 0) {
                                     const finalPoint = hits[0].point;

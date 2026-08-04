@@ -2,11 +2,34 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Final 3D By Roppan</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Project Roppan 3D</title>
     <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
+
+    <!-- LOADING SCREEN VIDEO BACKGROUND -->
+    <div id="game-loading-screen">
+        <!-- VIDEO BACKGROUND LOOP -->
+        <video id="loading-video-bg" class="loading-video-bg" autoplay loop muted playsinline>
+            <source src="/assets/videos/loading_bg.mp4" type="video/mp4">
+            Browser Anda tidak mendukung pemutaran video background.
+        </video>
+
+        <!-- OVERLAY UI LOADING SCREEN -->
+        <div class="loading-overlay-content">
+            <div class="loading-bottom-container">
+                <div class="loading-status-text">
+                    <span id="loading-task-name">Memuat: Map Utama...</span>
+                    <span id="loading-percent-text">0%</span>
+                </div>
+                <div class="loading-bar-track">
+                    <div id="loading-bar-fill" class="loading-bar-fill"></div>
+                </div>
+                <div id="loading-tips" class="loading-tips-text">Tips: Gunakan mode Developer untuk menata bangunan dan vegetasi sesukamu!</div>
+            </div>
+        </div>
+    </div>
 
     <!-- Tombol Saklar Mode -->
     <button id="btn-toggle-mode" class="btn-mode">🎮 MODE: BERMAIN (Klik untuk ubah)</button>

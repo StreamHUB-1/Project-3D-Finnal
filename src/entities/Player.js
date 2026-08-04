@@ -11,12 +11,19 @@ export const interactionUniforms = { playerPos: { value: new THREE.Vector3(0, -1
  * Mengatasi logika fisika, animasi, pergerakan dengan inersia, serta interaksi lingkungan.
  */
 export class Player {
-    constructor(scene) {
+    constructor(scene, loadingManager = null) {
         this.scene = scene;
+        this.loadingManager = loadingManager;
 
         // Container utama model karakter
         this.model = new THREE.Group();
-        this.model.position.set(0, 5, 10);
+        
+        // POSISI SPAWN AWAL PRESISI: X: 372, Y: 3.0, Z: -115
+        this.model.position.set(372, 3.0, -115);
+        
+        // Mengatur arah rotasi awal karakter agar menghadap ke Selatan (South / S)
+        this.model.rotation.y = Math.PI;
+
         this.scene.add(this.model);
 
         // Parameter pergerakan & fisika
@@ -28,6 +35,9 @@ export class Player {
         this.gravity = -30.0;
         this.jumpForce = 15.0;
         this.wasSpacePressed = false;
+
+        // FLAG KESIAPAN: Mencegah jatuh sebelum map selesai ter-load
+        this.isReady = false;
 
         // Parameter animasi
         this.mixer = null;
@@ -46,12 +56,16 @@ export class Player {
      */
     loadGenshinCharacter(path) {
         const fileName = path.split('/').pop();
-        const loader = new GLTFLoader();
+        const loader = new GLTFLoader(this.loadingManager);
         loader.load(
             path,
             (gltf) => {
                 const characterMesh = gltf.scene;
                 this.applyMaterialFixes(characterMesh, fileName);
+                
+                // Skala Karakter Standar 1.0
+                characterMesh.scale.set(1.0, 1.0, 1.0);
+
                 this.model.add(characterMesh);
 
                 this.animations = gltf.animations;
@@ -105,7 +119,13 @@ export class Player {
                         const isFoliage = (isTree || isShortFoliage) && !isSolid;
                         const isPushable = isShortFoliage && !isTree && !isSolid;
 
-                        mat.side = THREE.DoubleSide;
+                        // OPTIMALISASI RENDER: Hanya gunakan DoubleSide untuk vegetasi/transparan agar menghemat daya GPU
+                        if (isFoliage || mat.transparent || mat.alphaMap) {
+                            mat.side = THREE.DoubleSide;
+                        } else {
+                            mat.side = THREE.FrontSide;
+                        }
+
                         if (mat.transparent || mat.alphaMap || (mat.map && mat.map.format === THREE.RGBAFormat)) {
                             mat.transparent = false;
                             mat.alphaTest = 0.5;
@@ -300,16 +320,6 @@ export class Player {
         // Update koordinat posisi pemain untuk interaksi shader rumput
         interactionUniforms.playerPos.value.copy(this.model.position);
 
-        // Logika Lompat
-        if (inputState.keys.space && !this.wasSpacePressed) {
-            if (this.jumpCount < 2) {
-                this.yVelocity = this.jumpForce;
-                this.jumpCount++;
-                this.isGrounded = false;
-            }
-        }
-        this.wasSpacePressed = inputState.keys.space;
-
         // Menyusun daftar mesh rintangan dan lantai
         let allCollisionMeshes = [...world.baseObstacleMeshes];
         world.placedAssetsList.forEach(a => {
@@ -323,39 +333,151 @@ export class Player {
         
         let allTargets = [world.floorMesh, ...allCollisionMeshes];
 
+        // =========================================================
+        // MEKANISME INSTANT GROUND SNAP PADA KOORDINAT SPAWN TARGET
+        // =========================================================
+        if (!this.isReady) {
+            if (!world.isMapLoaded) {
+                // Tahan di Y = 3.0 tanpa gravitasi saat map belum siap
+                this.model.position.set(372, 3.0, -115);
+                this.yVelocity = 0;
+                return;
+            }
+
+            // Raycast ditembakkan langsung dari Y=500 pada posisi X: 372, Z: -115 untuk mencari permukaan tanah
+            const spawnRay = new THREE.Raycaster(
+                new THREE.Vector3(372, 500, -115),
+                new THREE.Vector3(0, -1, 0),
+                0, 1000
+            );
+            const hits = spawnRay.intersectObjects(allTargets, true);
+
+            if (hits.length > 0) {
+                // Tempelkan posisi karakter secara presisi di atas permukaan tanah/jalan
+                this.model.position.set(372, hits[0].point.y + 0.05, -115);
+                this.yVelocity = 0;
+                this.isGrounded = true;
+                this.isReady = true;
+                console.log("Karakter berhasil di-snap di posisi X: 372, Z: -115 dengan Y:", hits[0].point.y);
+            } else {
+                // Fallback default pada koordinat target jika belum ada permukaan terdeteksi
+                this.model.position.set(372, 3.0, -115);
+            }
+            return;
+        }
+
+        // SAFETY NET (RESCUE TELEPORT): Jika karakter jatuh menembus batas bawah map atau melayang ekstrem
+        if (this.model.position.y > 100 || this.model.position.y < -50) {
+            const rescueRay = new THREE.Raycaster(
+                new THREE.Vector3(372, 500, -115),
+                new THREE.Vector3(0, -1, 0),
+                0, 1000
+            );
+            const rescueHits = rescueRay.intersectObjects(allTargets, true);
+            if (rescueHits.length > 0) {
+                this.model.position.set(372, rescueHits[0].point.y + 0.5, -115);
+                this.yVelocity = 0;
+            } else {
+                this.model.position.set(372, 3.0, -115);
+                this.isReady = false;
+            }
+            return;
+        }
+
+        // Logika Lompat
+        if (inputState.keys.space && !this.wasSpacePressed) {
+            if (this.jumpCount < 2) {
+                this.yVelocity = this.jumpForce;
+                this.jumpCount++;
+                this.isGrounded = false;
+            }
+        }
+        this.wasSpacePressed = inputState.keys.space;
+
         // Gravitasi Vertikal
         this.yVelocity += this.gravity * delta;
 
-        // Deteksi Pijakan Bawah (Ground Raycast)
+        // =========================================================
+        // DETEKSI KEPENTOK ATAP/KANOPI (CEILING COLLISION CHECK)
+        // =========================================================
+        if (this.yVelocity > 0) {
+            const headRay = new THREE.Raycaster(
+                new THREE.Vector3(this.model.position.x, this.model.position.y + 1.2, this.model.position.z),
+                new THREE.Vector3(0, 1, 0),
+                0, 0.7 + Math.abs(this.yVelocity * delta)
+            );
+            const headHits = headRay.intersectObjects(allTargets, true);
+            if (headHits.length > 0) {
+                // Memantulkan atau menghentikan lompatan begitu kepala menabrak kanopi/atap
+                this.yVelocity = -2.0;
+            }
+        }
+
+        // =========================================================
+        // DETEKSI PIJAKAN BAWAH & GROUND SNAPPING MIRING (GENTENG)
+        // =========================================================
+        const rayOffset = this.isGrounded ? 1.5 : 1.2;
+        const rayLength = this.isGrounded ? 2.2 : 20.0;
+
         const downRay = new THREE.Raycaster(
-            new THREE.Vector3(this.model.position.x, this.model.position.y + 1.0, this.model.position.z),
+            new THREE.Vector3(this.model.position.x, this.model.position.y + rayOffset, this.model.position.z),
             new THREE.Vector3(0, -1, 0),
-            0, 10
+            0, rayLength
         );
         const groundIntersects = downRay.intersectObjects(allTargets, true);
 
         let surfaceHeight = -Infinity;
+        let isTooSteep = false;
+        let slopeNormal = new THREE.Vector3(0, 1, 0);
+
         for (let i = 0; i < groundIntersects.length; i++) {
-            if (groundIntersects[i].point.y <= this.model.position.y + 0.6) {
-                surfaceHeight = groundIntersects[i].point.y;
+            const hit = groundIntersects[i];
+            if (hit.point.y <= this.model.position.y + 1.2) {
+                surfaceHeight = hit.point.y;
+
+                // Cek sudut kemiringan permukaan (genteng/atap)
+                if (hit.face) {
+                    const worldNormal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+                    slopeNormal.copy(worldNormal);
+                    const angle = worldNormal.angleTo(new THREE.Vector3(0, 1, 0));
+                    // Jika sudut kemiringan > 50 derajat (0.87 Radian), bidang dianggap terlalu terjal
+                    if (angle > 0.87) {
+                        isTooSteep = true;
+                    }
+                }
                 break;
             }
         }
 
-        this.isGrounded = false;
         let nextY = this.model.position.y + this.yVelocity * delta;
 
-        if (nextY <= surfaceHeight) {
-            this.yVelocity = 0;
-            this.model.position.y = surfaceHeight;
-            this.isGrounded = true;
-            this.jumpCount = 0;
+        // Ground Snapping Logic: Kunci kaki di permukaan jika penurunan miring wajar
+        const snapThreshold = this.isGrounded ? 0.6 : 0.05;
+
+        if (surfaceHeight !== -Infinity && (nextY <= surfaceHeight || (this.isGrounded && this.model.position.y - surfaceHeight <= snapThreshold))) {
+            if (isTooSteep && !this.isGrounded) {
+                // Jika genteng/permukaan terlalu miring terjal, karakter merosot turun
+                this.yVelocity = Math.min(this.yVelocity, -8.0);
+                this.model.position.y = nextY;
+                this.currentVelocity.x += slopeNormal.x * 6.0 * delta;
+                this.currentVelocity.z += slopeNormal.z * 6.0 * delta;
+            } else {
+                this.yVelocity = 0;
+
+                // PERHALUS TRANSISI PERMUKAAN TANAH/TANGGA/GENTENG (LERP)
+                const targetY = surfaceHeight;
+                const smoothFactor = 1.0 - Math.exp(-25.0 * delta);
+                this.model.position.y = THREE.MathUtils.lerp(this.model.position.y, targetY, smoothFactor);
+
+                this.isGrounded = true;
+                this.jumpCount = 0;
+            }
         } else {
+            this.isGrounded = false;
             this.model.position.y = nextY;
         }
 
-        // Kalkulasi Input Arah Arah (WASD / Analog Mobile)
-        let currentSpeed = (inputState.keys.shift || inputState.isJoySprinting) ? this.moveSpeed * 1.8 : this.moveSpeed;
+        // Kalkulasi Input Arah (WASD / Analog Mobile)
         let moveX = inputState.joyMoveX;
         let moveZ = inputState.joyMoveZ;
 
@@ -363,6 +485,16 @@ export class Player {
         if (inputState.keys.s) moveZ = 1;
         if (inputState.keys.a) moveX = -1;
         if (inputState.keys.d) moveX = 1;
+
+        let isSprinting = inputState.keys.shift || inputState.isJoySprinting;
+
+        // PENANGANAN FITUR AUTO-RUN (PC & HP)
+        if (inputState.isAutoRun) {
+            moveZ = -1; // Memaksa karakter berjalan/berlari maju
+            isSprinting = true; // Otomatis berlari kencang
+        }
+
+        let currentSpeed = isSprinting ? this.moveSpeed * 1.8 : this.moveSpeed;
 
         // Vektor Kecepatan Target
         const targetVelocity = new THREE.Vector3(0, 0, 0);
@@ -382,37 +514,109 @@ export class Player {
         const lerpFactor = 1.0 - Math.exp(-12.0 * delta); // Independen terhadap FPS
         this.currentVelocity.lerp(targetVelocity, lerpFactor);
 
-        // Penerapan Pergerakan Sumbu X dengan Raycast Tabrakan
+        // =========================================================
+        // LOGIKA TABRAKAN PRESISI & STEP-UP (TROTOAR/TANGGA) VS PAGAR
+        // =========================================================
+        const maxStepHeight = 0.45; // Maksimal tinggi trotoar/anak tangga (0.45m)
+        const moveDistX = 0.35 + Math.abs(this.currentVelocity.x * delta);
+        const moveDistZ = 0.35 + Math.abs(this.currentVelocity.z * delta);
+
+        // --- PENERAPAN PERGERAKAN SUMBU X ---
         let finalMoveX = this.currentVelocity.x * delta;
         if (Math.abs(finalMoveX) > 0.0001) {
             let dirX = new THREE.Vector3(Math.sign(finalMoveX), 0, 0);
-            let rayX = new THREE.Raycaster(
-                new THREE.Vector3(this.model.position.x, this.model.position.y + 1, this.model.position.z),
-                dirX, 0, 0.6 + Math.abs(finalMoveX)
-            );
-            if (rayX.intersectObjects(allCollisionMeshes, true).length === 0) {
+            let perpX = new THREE.Vector3(0, 0, 1);
+
+            // 3 Titik Samping (Tengah, Kiri, Kanan)
+            let offsets = [0, -0.22, 0.22];
+            let footHit = false;
+            let stepHit = false;
+            let waistHit = false;
+
+            for (let off of offsets) {
+                let startPos = new THREE.Vector3().copy(this.model.position).addScaledVector(perpX, off);
+
+                let footRay = new THREE.Raycaster(new THREE.Vector3(startPos.x, startPos.y + 0.1, startPos.z), dirX, 0, moveDistX);
+                let stepRay = new THREE.Raycaster(new THREE.Vector3(startPos.x, startPos.y + maxStepHeight, startPos.z), dirX, 0, moveDistX);
+                let waistRay = new THREE.Raycaster(new THREE.Vector3(startPos.x, startPos.y + 1.0, startPos.z), dirX, 0, moveDistX);
+
+                if (footRay.intersectObjects(allTargets, true).length > 0) footHit = true;
+                if (stepRay.intersectObjects(allTargets, true).length > 0) stepHit = true;
+                if (waistRay.intersectObjects(allTargets, true).length > 0) waistHit = true;
+            }
+
+            if (footHit && !stepHit && !waistHit) {
+                // Kaki nabrak TAPI area Step (0.45m) & Pinggang Kosong -> Step-Up Tangga/Trotoar
+                const stepCheckRay = new THREE.Raycaster(
+                    new THREE.Vector3(this.model.position.x + dirX.x * moveDistX, this.model.position.y + maxStepHeight + 0.5, this.model.position.z),
+                    new THREE.Vector3(0, -1, 0), 0, maxStepHeight + 0.6
+                );
+                const checkHits = stepCheckRay.intersectObjects(allTargets, true);
+                if (checkHits.length > 0 && checkHits[0].point.y <= this.model.position.y + maxStepHeight + 0.05) {
+                    const targetStepY = checkHits[0].point.y + 0.02;
+                    this.model.position.y = THREE.MathUtils.lerp(this.model.position.y, targetStepY, 1.0 - Math.exp(-20.0 * delta));
+                    this.model.position.x += finalMoveX;
+                    this.yVelocity = 0;
+                    this.isGrounded = true;
+                } else {
+                    this.currentVelocity.x = 0;
+                }
+            } else if (!footHit && !stepHit && !waistHit) {
                 this.model.position.x += finalMoveX;
             } else {
-                this.currentVelocity.x = 0; // Hentikan inersia jika menabrak
+                // Ada tembok/pagar yang menghalangi -> Berhenti
+                this.currentVelocity.x = 0;
             }
         }
 
-        // Penerapan Pergerakan Sumbu Z dengan Raycast Tabrakan
+        // --- PENERAPAN PERGERAKAN SUMBU Z ---
         let finalMoveZ = this.currentVelocity.z * delta;
         if (Math.abs(finalMoveZ) > 0.0001) {
             let dirZ = new THREE.Vector3(0, 0, Math.sign(finalMoveZ));
-            let rayZ = new THREE.Raycaster(
-                new THREE.Vector3(this.model.position.x, this.model.position.y + 1, this.model.position.z),
-                dirZ, 0, 0.6 + Math.abs(finalMoveZ)
-            );
-            if (rayZ.intersectObjects(allCollisionMeshes, true).length === 0) {
+            let perpZ = new THREE.Vector3(1, 0, 0);
+
+            let offsets = [0, -0.22, 0.22];
+            let footHit = false;
+            let stepHit = false;
+            let waistHit = false;
+
+            for (let off of offsets) {
+                let startPos = new THREE.Vector3().copy(this.model.position).addScaledVector(perpZ, off);
+
+                let footRay = new THREE.Raycaster(new THREE.Vector3(startPos.x, startPos.y + 0.1, startPos.z), dirZ, 0, moveDistZ);
+                let stepRay = new THREE.Raycaster(new THREE.Vector3(startPos.x, startPos.y + maxStepHeight, startPos.z), dirZ, 0, moveDistZ);
+                let waistRay = new THREE.Raycaster(new THREE.Vector3(startPos.x, startPos.y + 1.0, startPos.z), dirZ, 0, moveDistZ);
+
+                if (footRay.intersectObjects(allTargets, true).length > 0) footHit = true;
+                if (stepRay.intersectObjects(allTargets, true).length > 0) stepHit = true;
+                if (waistRay.intersectObjects(allTargets, true).length > 0) waistHit = true;
+            }
+
+            if (footHit && !stepHit && !waistHit) {
+                // Kaki nabrak TAPI area Step (0.45m) & Pinggang Kosong -> Step-Up Tangga/Trotoar
+                const stepCheckRay = new THREE.Raycaster(
+                    new THREE.Vector3(this.model.position.x, this.model.position.y + maxStepHeight + 0.5, this.model.position.z + dirZ.z * moveDistZ),
+                    new THREE.Vector3(0, -1, 0), 0, maxStepHeight + 0.6
+                );
+                const checkHits = stepCheckRay.intersectObjects(allTargets, true);
+                if (checkHits.length > 0 && checkHits[0].point.y <= this.model.position.y + maxStepHeight + 0.05) {
+                    const targetStepY = checkHits[0].point.y + 0.02;
+                    this.model.position.y = THREE.MathUtils.lerp(this.model.position.y, targetStepY, 1.0 - Math.exp(-20.0 * delta));
+                    this.model.position.z += finalMoveZ;
+                    this.yVelocity = 0;
+                    this.isGrounded = true;
+                } else {
+                    this.currentVelocity.z = 0;
+                }
+            } else if (!footHit && !stepHit && !waistHit) {
                 this.model.position.z += finalMoveZ;
             } else {
-                this.currentVelocity.z = 0; // Hentikan inersia jika menabrak
+                // Ada tembok/pagar yang menghalangi -> Berhenti
+                this.currentVelocity.z = 0;
             }
         }
 
-        // ROTASI BERSKALA DELTA TIME (Mencegah Karakter Terbalik/Moonwalk)
+        // ROTASI BERSKALA DELTA TIME
         if (this.currentVelocity.lengthSq() > 0.1) {
             let targetAngle = Math.atan2(this.currentVelocity.x, this.currentVelocity.z) + Math.PI;
             let targetQuaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetAngle);
@@ -421,7 +625,7 @@ export class Player {
             this.model.quaternion.slerp(targetQuaternion, rotateSpeed);
         }
 
-        // Manajemen Status Animasi Berdasarkan Gerakan Real-time
+        // Manajemen Status Animasi
         const horizontalSpeed = Math.sqrt(this.currentVelocity.x * this.currentVelocity.x + this.currentVelocity.z * this.currentVelocity.z);
 
         if (!this.isGrounded) {

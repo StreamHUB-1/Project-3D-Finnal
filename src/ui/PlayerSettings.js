@@ -7,8 +7,8 @@ export class PlayerSettings {
         this.uiManager = uiManager;
 
         this.settings = {
-            dasar: { volume: 100, showFPS: false },
-            grafik: { resolusi: 'high', bayangan: true },
+            dasar: { volume: 100, showFPS: false, waktu: 'auto' },
+            grafik: { resolusi: 'high', bayangan: true, renderDistance: 100 },
             kontrol: { tipe: 'pc', sensitivitas: 50 }
         };
 
@@ -41,6 +41,20 @@ export class PlayerSettings {
                         <label style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold;">Volume Master: <span id="val-vol">100%</span></label>
                         <input type="range" id="set-vol" min="0" max="100" value="100" style="width: 100%; cursor: pointer;">
                     </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Siklus Waktu / Jam Game</label>
+                        <select id="set-time-cycle" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid #475569; border-radius: 4px; cursor: pointer;">
+                            <option value="auto">Berjalan Otomatis</option>
+                            <option value="00">Jam 00:00 (Tengah Malam)</option>
+                            <option value="03">Jam 03:00 (Dini Hari)</option>
+                            <option value="06">Jam 06:00 (Fajar)</option>
+                            <option value="09">Jam 09:00 (Pagi)</option>
+                            <option value="12">Jam 12:00 (Tengah Hari)</option>
+                            <option value="15">Jam 15:00 (Sore Terang)</option>
+                            <option value="18">Jam 18:00 (Senja/Sunset)</option>
+                            <option value="21">Jam 21:00 (Malam)</option>
+                        </select>
+                    </div>
                     <div style="margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
                         <label style="font-weight: bold;">Tampilkan FPS di Layar</label>
                         <input type="checkbox" id="set-fps" style="width: 18px; height: 18px; cursor: pointer;">
@@ -48,11 +62,16 @@ export class PlayerSettings {
                 </div>
                 <div id="st-grafik" class="st-tab-content" style="display: none;">
                     <div style="margin-bottom: 15px;">
+                        <label style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold;">Jarak Pandang (Render Distance): <span id="val-render-dist" style="color:#38bdf8;">100 Meter</span></label>
+                        <input type="range" id="set-render-dist" min="30" max="1000" step="10" value="100" style="width: 100%; cursor: pointer;">
+                        <span style="font-size: 10px; color: #94a3b8; display: block; margin-top: 4px;">*Turunkan ke 30m - 100m untuk HP kentang agar anti-lag.</span>
+                    </div>
+                    <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">Kualitas Resolusi Render</label>
                         <select id="set-resolusi" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid #475569; border-radius: 4px; cursor: pointer;">
-                            <option value="low">Rendah (Performa Tinggi)</option>
+                            <option value="low">Rendah (Hemat Baterai)</option>
                             <option value="med">Sedang (Seimbang)</option>
-                            <option value="high" selected>Tinggi (Visual Tajam)</option>
+                            <option value="high" selected>Tinggi (Visual Tajam & Mulus)</option>
                         </select>
                     </div>
                     <div style="margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
@@ -88,6 +107,22 @@ export class PlayerSettings {
         if (this.game && this.game.input) {
             const selectCtrl = this.modal.querySelector('#set-tipe-kontrol');
             if (selectCtrl) selectCtrl.value = this.game.input.controlType;
+        }
+
+        // Terapkan nilai default jarak pandang saat menu dibuka
+        if (this.game && this.game.engine) {
+            const sliderRenderDist = this.modal.querySelector('#set-render-dist');
+            const valRenderDist = this.modal.querySelector('#val-render-dist');
+            if (sliderRenderDist && valRenderDist) {
+                const curDist = this.game.engine.currentMaxDistance;
+                sliderRenderDist.value = curDist;
+                valRenderDist.innerText = `${curDist} Meter`;
+            }
+
+            const selectRes = this.modal.querySelector('#set-resolusi');
+            if (selectRes) {
+                selectRes.value = this.game.engine.currentResolutionLevel;
+            }
         }
 
         const btnClose = this.modal.querySelector('#btn-close-settings');
@@ -145,17 +180,33 @@ export class PlayerSettings {
             this.settings.dasar.volume = e.target.value;
         };
 
+        // Event Listener Pengubah Jam / Siklus Waktu di Modal Setting
+        this.modal.querySelector('#set-time-cycle').onchange = (e) => {
+            this.settings.dasar.waktu = e.target.value;
+            if (this.game && this.game.timeCycle) {
+                this.game.timeCycle.timeMode = e.target.value;
+            }
+        };
+
+        // SLIDER JARAK PANDANG PRESISI (30m - 1000m)
+        this.modal.querySelector('#set-render-dist').oninput = (e) => {
+            const distVal = parseInt(e.target.value);
+            this.modal.querySelector('#val-render-dist').innerText = `${distVal} Meter`;
+            this.settings.grafik.renderDistance = distVal;
+            if (this.game && this.game.engine) {
+                this.game.engine.setRenderDistance(distVal);
+            }
+        };
+
         this.modal.querySelector('#set-fps').onchange = (e) => {
             this.settings.dasar.showFPS = e.target.checked;
         };
 
+        // EVENT LISTENER KUALITAS RESOLUSI RENDER (LOW / MED / HIGH)
         this.modal.querySelector('#set-resolusi').onchange = (e) => {
             this.settings.grafik.resolusi = e.target.value;
-            if (this.game && this.game.engine && this.game.engine.renderer) {
-                const renderer = this.game.engine.renderer;
-                if (e.target.value === 'low') renderer.setPixelRatio(0.7);
-                else if (e.target.value === 'med') renderer.setPixelRatio(1.0);
-                else if (e.target.value === 'high') renderer.setPixelRatio(window.devicePixelRatio);
+            if (this.game && this.game.engine) {
+                this.game.engine.setResolutionQuality(e.target.value);
             }
         };
 
