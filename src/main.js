@@ -7,6 +7,7 @@ import { World } from './entities/World.js';
 import { Player, windUniforms, interactionUniforms } from './entities/Player.js';
 import { InputManager } from './controls/InputManager.js';
 import { UIManager } from './ui/UIManager.js';
+import { AudioManager } from './engine/AudioManager.js';
 
 /**
  * Entry Point Utama Permainan (Game Loop & Integrasi Seluruh Sistem)
@@ -39,8 +40,12 @@ class Game {
 
         this.timeCycle = new TimeCycle(this.engine.scene, this.engine.dirLight, this.engine.hemiLight);
         this.minimap = new Minimap(this.engine.scene);
+        
+        // Inisialisasi Dunia dan Karakter (Sisa Rapier sudah dibersihkan)
         this.world = new World(this.engine.scene, this.loadingManager);
-        this.player = new Player(this.engine.scene, this.loadingManager);
+        this.audio = new AudioManager();
+        this.player = new Player(this.engine.scene, this.loadingManager, this.audio);
+        
         this.input = new InputManager();
         this.ui = new UIManager(this);
 
@@ -49,6 +54,13 @@ class Game {
 
         this.initEditorClickEvents();
         this.animate = this.animate.bind(this);
+        
+        const unlockAudio = () => {
+            this.audio.startAmbience();
+            document.removeEventListener('click', unlockAudio);
+        };
+        document.addEventListener('click', unlockAudio);
+
         requestAnimationFrame(this.animate);
     }
 
@@ -141,11 +153,10 @@ class Game {
         requestAnimationFrame(this.animate);
 
         const time = performance.now();
-        const delta = (time - this.prevTime) / 1000;
+        const delta = Math.min((time - this.prevTime) / 1000, 0.1);
         this.prevTime = time;
 
         windUniforms.time.value += delta;
-
         this.timeCycle.update(delta);
 
         if (this.ui.isEditorMode && this.ui.currentRole === 'developer') {
@@ -160,26 +171,66 @@ class Game {
             let py = Math.round(this.player.model.position.y);
             let pz = Math.round(this.player.model.position.z);
             
-            // Panggil pembaharuan Kompas FPS dan Koordinat di Tengah Atas
             this.ui.updateFPSCompass(this.input.cameraAngle, px, py, pz);
             this.minimap.update(this.player.model.position, this.input.cameraAngle);
         }
 
-        this.engine.render();
+        this.engine.render(delta);
     }
 
+    /**
+     * Memperbarui posisi kamera dengan Sistem Anti-Nembus Tembok (Spring Arm Collision)
+     */
     updateCameraFollowPlayer() {
-        const camDistance = 6;
-        const camOffsetX = Math.sin(this.input.cameraAngle) * Math.cos(this.input.cameraPitch) * camDistance;
-        const camOffsetY = -Math.sin(this.input.cameraPitch) * camDistance + 3;
-        const camOffsetZ = Math.cos(this.input.cameraAngle) * Math.cos(this.input.cameraPitch) * camDistance;
+        if (!this.player.model) return;
 
+        const maxCamDistance = 6;
+        
+        // 1. Tentukan titik target yang dilihat kamera (Bagian kepala/pundak Karakter)
         const lookAtPos = new THREE.Vector3(
             this.player.model.position.x,
             this.player.model.position.y + 1.5,
             this.player.model.position.z
         );
-        this.engine.camera.position.set(lookAtPos.x + camOffsetX, lookAtPos.y + camOffsetY, lookAtPos.z + camOffsetZ);
+
+        // 2. Hitung posisi ideal kamera jika tidak ada halangan apapun
+        const idealOffsetX = Math.sin(this.input.cameraAngle) * Math.cos(this.input.cameraPitch) * maxCamDistance;
+        const idealOffsetY = -Math.sin(this.input.cameraPitch) * maxCamDistance + 3.0; // Offset tinggi kamera dari tanah
+        const idealOffsetZ = Math.cos(this.input.cameraAngle) * Math.cos(this.input.cameraPitch) * maxCamDistance;
+
+        const idealCamPos = new THREE.Vector3(
+            lookAtPos.x + idealOffsetX,
+            lookAtPos.y + idealOffsetY,
+            lookAtPos.z + idealOffsetZ
+        );
+
+        // 3. Buat Raycaster dari karakter ke arah posisi ideal kamera
+        const dirToCamera = new THREE.Vector3().subVectors(idealCamPos, lookAtPos).normalize();
+        const raycaster = new THREE.Raycaster(lookAtPos, dirToCamera, 0, maxCamDistance);
+
+        // 4. Kumpulkan semua objek yang bisa menutupi kamera (Map & Aset)
+        let allTargets = [this.world.floorMesh, ...this.world.baseObstacleMeshes];
+        this.world.placedAssetsList.forEach(a => {
+            const name = (a.mesh.name || '').toLowerCase();
+            // Kamera boleh tembus daun/rumput, tapi tidak boleh tembus tembok/batu
+            const isPassable = name.includes('grass') || name.includes('bush') || name.includes('flower') || name.includes('clover') || name.includes('plant');
+            if (!isPassable) {
+                allTargets.push(a.mesh);
+            }
+        });
+
+        // 5. Cek apakah ada tabrakan antara karakter dan posisi ideal kamera
+        const intersects = raycaster.intersectObjects(allTargets, true);
+        let finalCamPos = new THREE.Vector3().copy(idealCamPos);
+
+        if (intersects.length > 0) {
+            // Jika nabrak, majukan kamera ke titik tabrakan (Beri jarak aman 0.3 meter agar tidak klip ke dinding)
+            const safeDistance = Math.max(0.2, intersects[0].distance - 0.3);
+            finalCamPos.copy(lookAtPos).add(dirToCamera.multiplyScalar(safeDistance));
+        }
+
+        // 6. Aplikasikan posisi final kamera (Gunakan LERP agar pergerakan memantul halus)
+        this.engine.camera.position.lerp(finalCamPos, 0.3);
         this.engine.camera.lookAt(lookAtPos);
     }
 
@@ -291,11 +342,7 @@ class Game {
                 this.world.paintTerrainTexture(uv, this.ui.editorBrushSize, this.ui.currentCustomTextureImage);
             }
 
-            // =========================================================
-            // TOOL 6: MULTI-SELECT SCATTER BRUSH DENGAN KEPADATAN MAX 50
-            // =========================================================
             if (this.ui.activeEditorTool === 6 && this.input.isLeftMouseDown) {
-                
                 let assetsToSpawn = this.ui.selectedBrushAssets.length > 0 
                                     ? this.ui.selectedBrushAssets 
                                     : [this.ui.hotbarAssetNames[this.ui.activeHotbarIndex]];
@@ -303,13 +350,11 @@ class Game {
                 if (assetsToSpawn.length > 0 && assetsToSpawn[0]) {
                     this.scatterCooldown -= delta;
                     if (this.scatterCooldown <= 0) {
-                        
                         const assetName = assetsToSpawn[Math.floor(Math.random() * assetsToSpawn.length)];
                         const template = this.ui.savedAssetsData[assetName];
                         
                         if (template) {
                             const isFoliageGrass = assetName.toLowerCase().match(/(grass|bush|flower|plant|clover)/);
-                            
                             this.scatterCooldown = isFoliageGrass ? Math.max(0.005, 0.2 - (this.ui.brushDensity * 0.0039)) : 0.15;
 
                             const r = this.ui.editorBrushSize * Math.sqrt(Math.random());
@@ -318,7 +363,6 @@ class Game {
                             const spawnZ = point.z + r * Math.sin(theta);
                             
                             const randomScale = this.ui.brushMinScale + Math.random() * (this.ui.brushMaxScale - this.ui.brushMinScale);
-
                             let spacing = isFoliageGrass ? Math.max(0.1, 2.5 - (this.ui.brushDensity * 0.048)) : 3.5;
                             let safeDistance = randomScale * spacing;
                             
@@ -340,14 +384,11 @@ class Game {
                                     const finalPoint = hits[0].point;
                                     const newAsset = SkeletonUtils.clone(template);
                                     newAsset.name = assetName; 
-                                    
                                     newAsset.scale.copy(template.scale).multiplyScalar(randomScale);
                                     newAsset.rotation.y = Math.random() * Math.PI * 2;
-                                    
                                     newAsset.position.copy(finalPoint);
                                     this.engine.scene.add(newAsset);
                                     newAsset.updateMatrixWorld(true);
-
                                     this.world.placedAssetsList.push({ mesh: newAsset });
                                 }
                             }
@@ -357,7 +398,6 @@ class Game {
             } else {
                 this.scatterCooldown = 0;
             }
-
         } else {
             this.ui.brushRingMesh.visible = false;
         }

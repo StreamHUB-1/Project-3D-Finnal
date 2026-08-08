@@ -47,6 +47,12 @@ export class PCController {
         if (this.manager.keys.hasOwnProperty(key)) this.manager.keys[key] = true;
         if (e.code === 'Space') this.manager.keys.space = true;
 
+        // FITUR TAB MAP (EXPANDED MAP GTA V STYLE)
+        if (e.code === 'Tab') {
+            e.preventDefault(); // Mencegah pindah fokus elemen browser
+            document.dispatchEvent(new Event('toggleExpandedMap'));
+        }
+
         // FITUR AUTO-RUN DI PC: Tekan tombol R untuk Toggle Auto-Run
         if (e.code === 'KeyR') {
             this.manager.toggleAutoRun();

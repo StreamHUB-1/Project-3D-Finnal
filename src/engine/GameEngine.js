@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import { EffectComposer, RenderPass, EffectPass, BloomEffect, VignetteEffect, BlendFunction } from 'postprocessing';
 
 /**
- * Pengelola Mesin Utama Rendering 3D, Kamera, Pencahayaan, dan Optimalisasi Performa Perangkat
+ * Pengelola Mesin Utama Rendering 3D, Kamera, Pencahayaan, Postprocessing, dan Optimalisasi Performa
  */
 export class GameEngine {
     constructor() {
@@ -10,19 +11,19 @@ export class GameEngine {
         // Deteksi perangkat seluler (HP / Tablet)
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-        // Menggunakan Linear Fog agar objek di batas jarak pandang memudar mulus dengan warna langit
-        this.scene.fog = new THREE.Fog(0x87CEEB, 30, 100);
+        // Menggunakan Linear Fog dengan warna langit yang sedikit lebih gelap agar tidak silau
+        this.scene.fog = new THREE.Fog(0x75b9e6, 30, 100);
 
         // Far clipping plane awal (akan diatur dinamis oleh setRenderDistance)
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-        // WebGL Renderer dengan pengaturan performa adaptif & antialiasing
+        // WebGL Renderer dengan pengaturan performa adaptif & antialiasing dinonaktifkan
         this.renderer = new THREE.WebGLRenderer({ 
-            antialias: true, 
-            powerPreference: "high-performance" 
+            powerPreference: "high-performance",
+            antialias: false 
         });
 
-        // Tingkat resolusi render default (Default: High / Tinggi)
+        // Tingkat resolusi render default
         this.currentResolutionLevel = 'high';
         this.updatePixelRatio();
 
@@ -33,7 +34,8 @@ export class GameEngine {
         
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 0.8;
+        // DITURUNKAN: Exposure layar dikurangi agar langit dan jalan tidak over-exposed (silau)
+        this.renderer.toneMappingExposure = 0.55; 
         
         document.body.appendChild(this.renderer.domElement);
 
@@ -41,6 +43,7 @@ export class GameEngine {
         this.currentMaxDistance = this.isMobile ? 100 : 1000;
 
         this.initLighting();
+        this.initPostProcessing(); 
         this.initResizeListener();
         
         // Terapkan preset jarak pandang awal berdasarkan jenis perangkat
@@ -79,34 +82,70 @@ export class GameEngine {
      * Inisialisasi sistem pencahayaan dan kalkulasi bayangan adaptif
      */
     initLighting() {
-        this.hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.7);
+        // DITURUNKAN: Intensitas Hemisphere Light dikurangi sedikit agar area bayangan lebih memiliki kedalaman
+        this.hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
         this.hemiLight.position.set(0, 500, 0);
         this.scene.add(this.hemiLight);
 
-        this.dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
+        // DITURUNKAN: Intensitas Directional Light (Matahari) diturunkan secara signifikan dari 2.2 menjadi 1.4
+        this.dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
         this.dirLight.position.set(200, 600, 200);
         this.dirLight.castShadow = true;
 
-        // RESOLUSI BAYANGAN ADAPTIF: HP = 1024x1024, PC = 2048x2048
+        // RESOLUSI BAYANGAN ADAPTIF
         const shadowSize = this.isMobile ? 1024 : 2048;
         this.dirLight.shadow.mapSize.width = shadowSize;
         this.dirLight.shadow.mapSize.height = shadowSize;
         
-        this.dirLight.shadow.camera.near = 0.5;
-        this.dirLight.shadow.camera.far = 800;
+        // Memperketat near/far kamera bayangan
+        this.dirLight.shadow.camera.near = 100;
+        this.dirLight.shadow.camera.far = 1200;
         
         // Jangkauan kamera bayangan disesuaikan dengan jenis perangkat
-        const shadowBounds = this.isMobile ? 100 : 200;
+        const shadowBounds = this.isMobile ? 100 : 250;
         this.dirLight.shadow.camera.left = -shadowBounds;
         this.dirLight.shadow.camera.right = shadowBounds;
         this.dirLight.shadow.camera.top = shadowBounds;
         this.dirLight.shadow.camera.bottom = -shadowBounds;
         
-        // FIX SHADOW ACNE & GARIS-GARIS ANEH PADA PERMUKAAN DATAR
-        this.dirLight.shadow.bias = -0.00005;
-        this.dirLight.shadow.normalBias = 0.05;
+        // PERBAIKAN SHADOW ACNE & GARIS-GARIS BERGELOMBANG DI TANAH
+        this.dirLight.shadow.bias = -0.0003;
+        this.dirLight.shadow.normalBias = 0.08;
         
         this.scene.add(this.dirLight);
+    }
+
+    /**
+     * Inisialisasi Postprocessing Pipeline untuk Efek Sinematik (Bloom, Vignette)
+     */
+    initPostProcessing() {
+        this.composer = new EffectComposer(this.renderer, {
+            frameBufferType: THREE.HalfFloatType 
+        });
+
+        // 1. Pass Pertama: Render Scene Utama
+        const renderPass = new RenderPass(this.scene, this.camera);
+        this.composer.addPass(renderPass);
+
+        // 2. Efek Bloom (Pendaran Cahaya Realistis) - DIKALIBRASI ULANG
+        const bloomEffect = new BloomEffect({
+            blendFunction: BlendFunction.SCREEN,
+            mipmapBlur: true, 
+            luminanceThreshold: 0.95, // DINAIKKAN: Hanya objek yang benar-benar memancarkan cahaya yang akan berpendar, langit aman
+            luminanceSmoothing: 0.05,
+            intensity: 0.3 // DITURUNKAN: Agar efek pendaran lebih halus dan tidak menyilaukan mata
+        });
+
+        // 3. Efek Vignette (Penggelapan di sudut layar untuk fokus sinematik)
+        const vignetteEffect = new VignetteEffect({
+            eskil: false,
+            offset: 0.15,
+            darkness: 0.45
+        });
+
+        // 4. Pass Terakhir: Terapkan semua efek ke layar
+        const effectPass = new EffectPass(this.camera, bloomEffect, vignetteEffect);
+        this.composer.addPass(effectPass);
     }
 
     /**
@@ -126,26 +165,24 @@ export class GameEngine {
 
         this.currentMaxDistance = targetFar;
 
-        // Update Camera Far Plane (Memotong total objek di luar jarak pandang pada GPU)
         this.camera.far = targetFar;
         this.camera.updateProjectionMatrix();
 
         // Update Linear Fog agar batas potongan objek tersamarkan mulus dengan langit
         if (this.scene.fog) {
-            this.scene.fog.near = Math.max(10, targetFar * 0.35);
+            // DIMUNDURKAN: Jarak pandang bebas kabut diperlebar agar area depan pemain jernih
+            this.scene.fog.near = Math.max(40, targetFar * 0.75);
             this.scene.fog.far = targetFar;
         }
 
-        // Update Shadow Camera Far
         if (this.dirLight) {
-            this.dirLight.shadow.camera.far = Math.min(targetFar, 800);
+            this.dirLight.shadow.camera.far = Math.min(targetFar, 1200);
             this.dirLight.shadow.camera.updateProjectionMatrix();
         }
     }
 
     /**
-     * Optimalisasi Jarak Objek (Distance Culling):
-     * Menyembunyikan aset dunia yang jaraknya melebihi batas render agar GPU mengabaikan proses matriks & vertex
+     * Optimalisasi Jarak Objek (Distance Culling)
      * @param {THREE.Vector3} playerPos - Posisi koordinat pemain saat ini
      * @param {Array} placedAssetsList - Daftar aset objek yang diletakkan di map
      */
@@ -157,7 +194,6 @@ export class GameEngine {
         placedAssetsList.forEach(asset => {
             if (asset && asset.mesh) {
                 const distSq = playerPos.distanceToSquared(asset.mesh.position);
-                // Matikan visibilitas objek di luar jarak pandang
                 asset.mesh.visible = (distSq <= maxDistSq);
             }
         });
@@ -171,14 +207,22 @@ export class GameEngine {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
+            if (this.composer) {
+                this.composer.setSize(window.innerWidth, window.innerHeight);
+            }
             this.updatePixelRatio();
         });
     }
 
     /**
-     * Mengeksekusi rendering frame 3D
+     * Mengeksekusi rendering frame 3D melalui Composer Postprocessing
+     * @param {number} delta - Selisih waktu antar frame
      */
-    render() {
-        this.renderer.render(this.scene, this.camera);
+    render(delta) {
+        if (this.composer) {
+            this.composer.render(delta);
+        } else {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
 }

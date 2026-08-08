@@ -1,5 +1,10 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
 /**
- * Modul Pengaturan Pemain (Player Settings)
+ * Modul Pengaturan Pemain (Player Settings) & Fitur Pengembangan Editor Mode
  */
 export class PlayerSettings {
     constructor(game, uiManager) {
@@ -20,30 +25,35 @@ export class PlayerSettings {
         this.modal = document.createElement('div');
         this.modal.id = 'player-settings-modal';
         this.modal.style.cssText = `
-            background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); border-radius: 12px; width: 500px; max-width: 90%;
+            background: rgba(40, 40, 40, 0.3); border: none;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); border-radius: 16px; width: 540px; max-width: 92%;
             overflow: hidden; display: none; flex-direction: column; color: #f8fafc; z-index: 100000;
         `;
 
         this.modal.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.1);">
-                <h2 style="margin: 0; font-size: 18px; color: #38bdf8; font-family: sans-serif; font-weight: 800;">⚙️ PENGATURAN</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; background: rgba(0,0,0,0.15);">
+                <h2 style="margin: 0; font-size: 18px; color: #38bdf8; font-family: sans-serif; font-weight: 800; letter-spacing: 1px;">⚙️ PENGATURAN</h2>
                 <button id="btn-close-settings" style="background: none; border: none; color: #ef4444; font-size: 24px; cursor: pointer; font-weight: bold; padding: 5px 15px; margin: -5px -15px; transition: 0.2s;">✕</button>
             </div>
-            <div style="display: flex; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.1); font-family: sans-serif;">
-                <button class="st-tab-btn active" data-target="st-dasar" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; font-weight: bold; border-bottom: 2px solid #38bdf8;">Dasar</button>
-                <button class="st-tab-btn" data-target="st-grafik" style="flex: 1; padding: 12px; background: transparent; border: none; color: #cbd5e1; cursor: pointer; font-weight: bold; border-bottom: 2px solid transparent;">Grafik</button>
-                <button class="st-tab-btn" data-target="st-kontrol" style="flex: 1; padding: 12px; background: transparent; border: none; color: #cbd5e1; cursor: pointer; font-weight: bold; border-bottom: 2px solid transparent;">Kontrol</button>
+            
+            <div style="display: flex; background: rgba(0,0,0,0.1); font-family: sans-serif;">
+                <button class="st-tab-btn active" data-target="st-dasar" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; font-weight: bold;">Dasar</button>
+                <button class="st-tab-btn" data-target="st-grafik" style="flex: 1; padding: 12px; background: transparent; border: none; color: #cbd5e1; cursor: pointer; font-weight: bold;">Grafik</button>
+                <button class="st-tab-btn" data-target="st-kontrol" style="flex: 1; padding: 12px; background: transparent; border: none; color: #cbd5e1; cursor: pointer; font-weight: bold;">Kontrol</button>
+                <button class="st-tab-btn" data-target="st-pengembangan" style="flex: 1; padding: 12px; background: transparent; border: none; color: #f59e0b; cursor: pointer; font-weight: bold;">🛠️ Dev</button>
             </div>
-            <div style="padding: 20px; font-family: sans-serif; font-size: 14px;">
+
+            <div style="padding: 24px; font-family: sans-serif; font-size: 14px;">
+                <!-- TAB 1: DASAR -->
                 <div id="st-dasar" class="st-tab-content" style="display: block;">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold;">Volume Master: <span id="val-vol">100%</span></label>
+                    <div style="margin-bottom: 18px;">
+                        <label style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: bold;">Volume Master: <span id="val-vol">100%</span></label>
                         <input type="range" id="set-vol" min="0" max="100" value="100" style="width: 100%; cursor: pointer;">
                     </div>
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Siklus Waktu / Jam Game</label>
-                        <select id="set-time-cycle" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid #475569; border-radius: 4px; cursor: pointer;">
+                    <div style="margin-bottom: 18px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: bold;">Siklus Waktu / Jam Game</label>
+                        <select id="set-time-cycle" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.3); color: white; border: none; border-radius: 8px; cursor: pointer;">
                             <option value="auto">Berjalan Otomatis</option>
                             <option value="00">Jam 00:00 (Tengah Malam)</option>
                             <option value="03">Jam 03:00 (Dini Hari)</option>
@@ -55,50 +65,87 @@ export class PlayerSettings {
                             <option value="21">Jam 21:00 (Malam)</option>
                         </select>
                     </div>
-                    <div style="margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between;">
                         <label style="font-weight: bold;">Tampilkan FPS di Layar</label>
                         <input type="checkbox" id="set-fps" style="width: 18px; height: 18px; cursor: pointer;">
                     </div>
                 </div>
+
+                <!-- TAB 2: GRAFIK -->
                 <div id="st-grafik" class="st-tab-content" style="display: none;">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold;">Jarak Pandang (Render Distance): <span id="val-render-dist" style="color:#38bdf8;">100 Meter</span></label>
+                    <div style="margin-bottom: 18px;">
+                        <label style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: bold;">Jarak Pandang (Render Distance): <span id="val-render-dist" style="color:#38bdf8;">100 Meter</span></label>
                         <input type="range" id="set-render-dist" min="30" max="1000" step="10" value="100" style="width: 100%; cursor: pointer;">
-                        <span style="font-size: 10px; color: #94a3b8; display: block; margin-top: 4px;">*Turunkan ke 30m - 100m untuk HP kentang agar anti-lag.</span>
+                        <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 4px;">*Turunkan ke 30m - 100m untuk HP kentang agar anti-lag.</span>
                     </div>
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Kualitas Resolusi Render</label>
-                        <select id="set-resolusi" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid #475569; border-radius: 4px; cursor: pointer;">
+                    <div style="margin-bottom: 18px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: bold;">Kualitas Resolusi Render</label>
+                        <select id="set-resolusi" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.3); color: white; border: none; border-radius: 8px; cursor: pointer;">
                             <option value="low">Rendah (Hemat Baterai)</option>
                             <option value="med">Sedang (Seimbang)</option>
                             <option value="high" selected>Tinggi (Visual Tajam & Mulus)</option>
                         </select>
                     </div>
-                    <div style="margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between;">
                         <label style="font-weight: bold;">Aktifkan Bayangan Real-Time</label>
                         <input type="checkbox" id="set-bayangan" checked style="width: 18px; height: 18px; cursor: pointer;">
                     </div>
                 </div>
+
+                <!-- TAB 3: KONTROL -->
                 <div id="st-kontrol" class="st-tab-content" style="display: none;">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Jenis Perangkat Kontrol</label>
-                        <select id="set-tipe-kontrol" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: white; border: 1px solid #475569; border-radius: 4px; cursor: pointer;">
+                    <div style="margin-bottom: 18px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: bold;">Jenis Perangkat Kontrol</label>
+                        <select id="set-tipe-kontrol" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.3); color: white; border: none; border-radius: 8px; cursor: pointer;">
                             <option value="pc" selected>Keyboard & Mouse (PC)</option>
                             <option value="mobile">Layar Sentuh / Joystick (HP)</option>
                         </select>
                     </div>
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: bold;">Sensitivitas Kamera: <span id="val-sens">50</span></label>
+                    <div style="margin-bottom: 18px;">
+                        <label style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: bold;">Sensitivitas Kamera: <span id="val-sens">50</span></label>
                         <input type="range" id="set-sens" min="1" max="100" value="50" style="width: 100%; cursor: pointer;">
                     </div>
-                    <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
-                        <button id="btn-edit-layout" style="width: 100%; padding: 12px; background: #f59e0b; color: #fff; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s;">📐 SESUAIKAN LAYOUT HUD (HP)</button>
+                    <div style="margin-top: 25px; padding-top: 15px;">
+                        <button id="btn-edit-layout" style="width: 100%; padding: 12px; background: #f59e0b; color: #fff; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s;">📐 SESUAIKAN LAYOUT HUD (HP)</button>
+                    </div>
+                </div>
+
+                <!-- TAB 4: PENGEMBANGAN (DEVELOPER MODE & WORLD EDITOR) -->
+                <div id="st-pengembangan" class="st-tab-content" style="display: none;">
+                    <div style="margin-bottom: 20px; text-align: center;">
+                        <button id="btn-toggle-dev-role" style="width: 100%; padding: 12px; background: #38bdf8; color: #0f172a; font-weight: 800; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);">🛠️ AKTIFKAN MODE DEVELOPER</button>
+                    </div>
+
+                    <div id="dev-tools-box" style="display: none; flex-direction: column; gap: 15px;">
+                        <div style="font-weight: bold; color: #38bdf8; font-size: 13px;">📁 UPLOAD ASET KUSTOM</div>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <div id="drop-zone-karakter" class="drop-zone-glass" style="flex: 1; min-width: 120px; padding: 15px;">
+                                <span id="drop-text-karakter">👤 Karakter<br>(.glb/.gltf)</span>
+                            </div>
+                            <div id="drop-zone-assets" class="drop-zone-glass" style="flex: 1; min-width: 120px; padding: 15px;">
+                                <span id="drop-text-assets">📦 Asset World<br>(.glb/.gltf)</span>
+                            </div>
+                            <div id="drop-zone-fbx" class="drop-zone-glass" style="flex: 1; min-width: 120px; padding: 15px;">
+                                <span id="drop-text-fbx">📄 Model<br>(.fbx)</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <div style="font-weight: bold; color: #38bdf8; font-size: 13px; margin-bottom: 8px;">🎨 TEKSTUR LAHAN</div>
+                            <div id="drop-zone-texture" class="drop-zone-glass" style="width: 100%; height: 60px; margin-bottom: 10px;">
+                                <span id="drop-text-texture">📷 Tarik Gambar Tekstur (.png / .jpg)</span>
+                            </div>
+                            <div id="texture-gallery" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; max-width: 100%;">
+                                <span style="color:#aaa; font-size:11px;">Belum ada tekstur.</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div id="player-only-actions" style="padding: 0 20px 20px 20px; display: none; gap: 10px; font-family: sans-serif;">
-                <button id="btn-resume-game" style="flex: 1; padding: 12px; background: #38bdf8; color: #0f172a; border: none; border-radius: 6px; font-weight: 800; cursor: pointer; transition: 0.2s;">▶ LANJUTKAN</button>
-                <button id="btn-logout-player" style="flex: 1; padding: 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: 800; cursor: pointer; transition: 0.2s;">🚪 GANTI PERAN</button>
+
+            <div id="player-only-actions" style="padding: 0 24px 24px 24px; display: flex; gap: 10px; font-family: sans-serif;">
+                <button id="btn-resume-game" style="flex: 1; padding: 12px; background: #38bdf8; color: #0f172a; border: none; border-radius: 8px; font-weight: 800; cursor: pointer; transition: 0.2s;">▶ LANJUTKAN</button>
             </div>
         `;
     }
@@ -133,9 +180,26 @@ export class PlayerSettings {
         const handleResume = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } this.uiManager.resumeGame(); };
         btnResume.onclick = handleResume; btnResume.ontouchstart = handleResume;
 
-        const btnLogout = this.modal.querySelector('#btn-logout-player');
-        const handleLogout = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } this.uiManager.logout(); };
-        btnLogout.onclick = handleLogout; btnLogout.ontouchstart = handleLogout;
+        // EVENT TOGGLE DEVELOPER ROLE
+        const btnToggleDev = this.modal.querySelector('#btn-toggle-dev-role');
+        const devToolsBox = this.modal.querySelector('#dev-tools-box');
+
+        btnToggleDev.onclick = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            if (this.uiManager.currentRole === 'player') {
+                this.uiManager.setRole('developer');
+                btnToggleDev.innerText = '🎮 KEMBALI KE MODE PLAYER';
+                btnToggleDev.style.background = '#ef4444';
+                btnToggleDev.style.color = '#ffffff';
+                if (devToolsBox) devToolsBox.style.display = 'flex';
+            } else {
+                this.uiManager.setRole('player');
+                btnToggleDev.innerText = '🛠️ AKTIFKAN MODE DEVELOPER';
+                btnToggleDev.style.background = '#38bdf8';
+                btnToggleDev.style.color = '#0f172a';
+                if (devToolsBox) devToolsBox.style.display = 'none';
+            }
+        };
 
         // BUKA EDITOR LAYOUT HP
         const btnEditLayout = this.modal.querySelector('#btn-edit-layout');
@@ -164,10 +228,10 @@ export class PlayerSettings {
         tabBtns.forEach(btn => {
             const handleTab = (e) => {
                 if (e) { e.preventDefault(); e.stopPropagation(); }
-                tabBtns.forEach(b => { b.classList.remove('active'); b.style.background = 'transparent'; b.style.borderBottom = '2px solid transparent'; b.style.color = '#cbd5e1'; });
+                tabBtns.forEach(b => { b.classList.remove('active'); b.style.background = 'transparent'; b.style.color = b.getAttribute('data-target') === 'st-pengembangan' ? '#f59e0b' : '#cbd5e1'; });
                 tabContents.forEach(c => c.style.display = 'none');
 
-                btn.classList.add('active'); btn.style.background = 'rgba(255,255,255,0.1)'; btn.style.borderBottom = '2px solid #38bdf8'; btn.style.color = 'white';
+                btn.classList.add('active'); btn.style.background = 'rgba(255,255,255,0.1)'; btn.style.color = 'white';
                 
                 const targetId = btn.getAttribute('data-target');
                 this.modal.querySelector('#' + targetId).style.display = 'block';
@@ -175,9 +239,16 @@ export class PlayerSettings {
             btn.onclick = handleTab; btn.ontouchstart = handleTab;
         });
 
+        // INTEGRASI AUDIO MANAGER KE SLIDER VOLUME
         this.modal.querySelector('#set-vol').oninput = (e) => {
-            this.modal.querySelector('#val-vol').innerText = e.target.value + '%';
-            this.settings.dasar.volume = e.target.value;
+            const volValue = e.target.value;
+            this.modal.querySelector('#val-vol').innerText = volValue + '%';
+            this.settings.dasar.volume = volValue;
+            
+            // Sinkronisasi volume ke Howler js (range 0.0 - 1.0)
+            if (this.game && this.game.audio) {
+                this.game.audio.setMasterVolume(volValue / 100);
+            }
         };
 
         // Event Listener Pengubah Jam / Siklus Waktu di Modal Setting
@@ -239,6 +310,6 @@ export class PlayerSettings {
 
     updateUIMode() {
         const actionBox = this.modal.querySelector('#player-only-actions');
-        if (actionBox) actionBox.style.display = (this.uiManager.currentRole === 'player') ? 'flex' : 'none';
+        if (actionBox) actionBox.style.display = 'flex';
     }
 }

@@ -6,7 +6,8 @@ import { MobileController } from './MobileController.js';
  */
 export class InputManager {
     constructor() {
-        this.keys = { w: false, a: false, s: false, d: false, space: false, shift: false, q: false, e: false };
+        // UPDATE: Menambahkan 'c' untuk deteksi tombol Sneak/Crouch
+        this.keys = { w: false, a: false, s: false, d: false, space: false, shift: false, q: false, e: false, c: false };
         this.cameraAngle = 0;
         this.cameraPitch = 0;
         this.mouseWheelDelta = 0;

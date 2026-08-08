@@ -1,11 +1,13 @@
 /**
  * Konfigurasi Layout Default Utama Perangkat Mobile
+ * UPDATE: Penyesuaian layout default untuk memasukkan tombol SNEAK
  */
-const DEFAULT_MOBILE_LAYOUT = {
+export const DEFAULT_MOBILE_LAYOUT = {
     "joyBase": { "left": 12.67, "top": 77.37, "scale": 1, "opacity": 1, "hidden": false },
     "btnJump": { "left": 90.38, "top": 63.75, "scale": 0.8, "opacity": 1, "hidden": false },
     "btnSprint": { "left": 84.95, "top": 81.02, "scale": 1, "opacity": 1, "hidden": false },
-    "btnAutoRun": { "left": 84.95, "top": 60.50, "scale": 0.9, "opacity": 1, "hidden": false },
+    "btnSneak": { "left": 84.95, "top": 70.00, "scale": 0.9, "opacity": 1, "hidden": false },
+    "btnAutoRun": { "left": 84.95, "top": 50.50, "scale": 0.9, "opacity": 1, "hidden": false },
     "btnAction1": { "left": 0, "top": 0, "scale": 1, "opacity": 1, "hidden": true },
     "btnAction2": { "left": 0, "top": 0, "scale": 1, "opacity": 1, "hidden": true },
     "btnSettings": { "left": 92.19, "top": 4.87, "scale": 1, "opacity": 1, "hidden": false },
@@ -29,6 +31,11 @@ export class MobileLayoutEditor {
         const savedData = localStorage.getItem('mobile_layout_data');
         this.layoutData = savedData ? JSON.parse(savedData) : JSON.parse(JSON.stringify(DEFAULT_MOBILE_LAYOUT));
         
+        // UPDATE: Pemeriksaan tambahan agar format yang disimpan kompatibel jika btnSneak belum ada (mencegah undefined error)
+        if (!this.layoutData['btnSneak']) {
+            this.layoutData['btnSneak'] = DEFAULT_MOBILE_LAYOUT['btnSneak'];
+        }
+
         this.activeElement = null;
         this.elements = [];
 
@@ -87,16 +94,14 @@ export class MobileLayoutEditor {
     }
 
     bindEditorEvents() {
-        // EVENT TOMBOL AKSI
         this.popup.querySelector('#btn-layout-save').onclick = () => this.saveLayout();
         this.popup.querySelector('#btn-layout-copy').onclick = () => this.copyLayoutCode();
         this.popup.querySelector('#btn-layout-reset').onclick = () => this.resetLayout();
         this.popup.querySelector('#btn-layout-cancel').onclick = () => {
-            this.applyLayout(); // Balikin posisi ke simpanan terakhir
+            this.applyLayout(); 
             this.stop();
         };
 
-        // EVENT TOGGLE HIDE / SHOW
         const btnToggleVis = this.popup.querySelector('#btn-toggle-visible');
         btnToggleVis.onclick = () => {
             if (this.activeElement) {
@@ -105,7 +110,6 @@ export class MobileLayoutEditor {
             }
         };
 
-        // EVENT DRAG POPUP TOOLBOX
         const header = this.popup.querySelector('#popup-header');
         let isDraggingPopup = false, pStartX, pStartY, pInitX, pInitY;
 
@@ -131,7 +135,6 @@ export class MobileLayoutEditor {
         document.addEventListener('mousemove', pMove);
         document.addEventListener('mouseup', pEnd);
 
-        // EVENT SLIDER SKALA & OPACITY
         const sliderScale = this.popup.querySelector('#ed-scale');
         sliderScale.oninput = (e) => {
             if (this.activeElement) {
@@ -161,7 +164,6 @@ export class MobileLayoutEditor {
             }
         };
 
-        // EVENT D-PAD PRESISI (Bisa ditahan)
         const dpadBtns = this.popup.querySelectorAll('.dpad-btn');
         let moveInterval;
 
@@ -216,6 +218,8 @@ export class MobileLayoutEditor {
             { id: 'joyBase', el: this.controller.joyBase, name: 'Analog Joystick' },
             { id: 'btnJump', el: this.controller.btnJump, name: 'Tombol Lompat' },
             { id: 'btnSprint', el: this.controller.btnSprint, name: 'Tombol Lari' },
+            // UPDATE: Memasukkan btnSneak ke daftar elemen editor
+            { id: 'btnSneak', el: this.controller.btnSneak, name: 'Tombol Ngendap (Sneak)' },
             { id: 'btnAutoRun', el: this.controller.btnAutoRun, name: 'Tombol Auto Run' },
             { id: 'btnAction1', el: this.controller.btnAction1, name: 'Tombol Aksi 1' },
             { id: 'btnAction2', el: this.controller.btnAction2, name: 'Tombol Aksi 2' },
@@ -223,7 +227,6 @@ export class MobileLayoutEditor {
             { id: 'btnFullscreen', el: this.controller.btnFullscreen, name: 'Tombol Fullscreen' }
         ];
 
-        // Didaftarkan seluruh elemen HUD Tambahan
         const minimapEl = document.getElementById('minimap-container') || document.getElementById('minimap') || document.querySelector('.minimap');
         if (minimapEl) this.elements.push({ id: 'minimap', el: minimapEl, name: 'Peta Mini' });
 
@@ -310,7 +313,6 @@ export class MobileLayoutEditor {
         this.clearSelection();
         this.activeElement = item;
         
-        // Tampilkan sementara jika elemen tersembunyi agar terlihat saat diedit
         if (item.hidden) item.el.style.display = 'flex';
 
         item.el.style.boxShadow = '0 0 20px 5px #10b981'; 
@@ -338,7 +340,6 @@ export class MobileLayoutEditor {
         this.controller.uiContainer.style.pointerEvents = 'auto';
         this.controller.uiContainer.style.background = 'rgba(0, 0, 0, 0.6)'; 
 
-        // Paksa tampilkan seluruh elemen tersembunyi saat mode edit dengan transparansi tipis
         this.elements.forEach(item => {
             if (item.el) {
                 item.el.style.display = 'flex';
@@ -406,98 +407,85 @@ export class MobileLayoutEditor {
             };
         });
 
-        const jsonCode = JSON.stringify(this.layoutData, null, 2);
+        const jsonString = JSON.stringify(this.layoutData, null, 2);
+        const formattedCode = `const DEFAULT_MOBILE_LAYOUT = ${jsonString};`;
 
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(jsonCode).then(() => {
-                this.showToast('📋 Kode Layout Berhasil Disalin!');
-            }).catch(() => {
-                this.fallbackCopyText(jsonCode);
-            });
-        } else {
-            this.fallbackCopyText(jsonCode);
-        }
-    }
-
-    fallbackCopyText(text) {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        this.showToast('📋 Kode Layout Berhasil Disalin!');
-    }
-
-    showToast(msg) {
-        const toast = document.createElement('div');
-        toast.innerHTML = msg;
-        toast.style.cssText = `
-            position: fixed; top: 25%; left: 50%; transform: translateX(-50%);
-            background: #10b981; color: white; padding: 12px 24px; border-radius: 10px;
-            font-weight: 800; z-index: 999999; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            transition: 0.4s opacity; font-family: sans-serif; font-size: 13px;
-        `;
-        document.body.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 2000);
+        navigator.clipboard.writeText(formattedCode).then(() => {
+            this.showToast('📋 Kode layout berhasil disalin ke Clipboard!');
+        }).catch(err => {
+            console.error('Gagal menyalin kode:', err);
+            this.showToast('❌ Gagal menyalin kode layout!');
+        });
     }
 
     resetLayout() {
-        if (confirm('Kembalikan semua tombol ke susunan default?')) {
+        if (confirm("Reset layout ke pengaturan awal?")) {
             localStorage.removeItem('mobile_layout_data');
             this.layoutData = JSON.parse(JSON.stringify(DEFAULT_MOBILE_LAYOUT));
             this.applyLayout();
-            this.showToast('🔄 Layout Berhasil Di-reset!');
+            this.stop();
+            this.showToast('🔄 Layout direset ke default!');
         }
     }
 
     applyLayout() {
-        this.initElements();
-        this.elements.forEach(item => {
-            if (!item.el) return;
-            const data = this.layoutData[item.id] || DEFAULT_MOBILE_LAYOUT[item.id];
+        const layout = this.layoutData;
+        if (!layout) return;
+
+        const applyToElement = (id, el) => {
+            if (!el || !layout[id]) return;
+            const data = layout[id];
             
-            if (data) {
-                // Terapkan Sembunyi / Tampil
-                item.hidden = data.hidden || false;
-                if (item.hidden) {
-                    item.el.style.display = 'none';
-                } else {
-                    item.el.style.display = 'flex';
-                }
-
-                // Terapkan Posisi Absolut
-                item.el.style.position = 'fixed';
-                item.el.style.left = data.left + 'vw';
-                item.el.style.top = data.top + 'vh';
-                item.el.style.bottom = 'auto';
-                item.el.style.right = 'auto';
-                
-                // Terapkan Opacity
-                item.opacity = data.opacity !== undefined ? data.opacity : 1;
-                item.el.style.opacity = item.opacity;
-
-                // Terapkan Skala
-                item.scale = data.scale;
-                if (item.id === 'minimap') {
-                    item.el.style.transform = `scale(${data.scale})`;
-                    item.el.style.transformOrigin = 'top left';
-                } else if (item.id === 'compass') {
-                    item.el.style.transform = `translateX(-50%) scale(${data.scale})`;
-                    item.el.style.transformOrigin = 'top center';
-                } else {
-                    item.el.style.setProperty('--layout-scale', data.scale);
-                }
+            el.style.position = 'absolute';
+            el.style.left = `${data.left}vw`;
+            el.style.top = `${data.top}vh`;
+            el.style.bottom = 'auto';
+            el.style.right = 'auto';
+            
+            if (id === 'minimap') {
+                el.style.transform = `scale(${data.scale || 1})`;
+                el.style.transformOrigin = 'top left';
+            } else if (id === 'compass') {
+                el.style.transform = `translateX(-50%) scale(${data.scale || 1})`;
+                el.style.transformOrigin = 'top center';
             } else {
-                item.el.style.setProperty('--layout-scale', 1);
-                item.scale = 1;
-                item.opacity = 1;
-                item.hidden = false;
-                item.el.style.opacity = 1;
-                item.el.style.display = 'flex';
+                el.style.setProperty('--layout-scale', data.scale || 1);
             }
             
-            item.el.style.pointerEvents = item.originalPointerEvents;
-        });
+            el.style.opacity = data.opacity !== undefined ? data.opacity : 1;
+            el.style.display = data.hidden ? 'none' : 'flex';
+        };
+
+        applyToElement('joyBase', this.controller.joyBase);
+        applyToElement('btnJump', this.controller.btnJump);
+        applyToElement('btnSprint', this.controller.btnSprint);
+        applyToElement('btnSneak', this.controller.btnSneak); // Terapkan posisi tombol Sneak
+        applyToElement('btnAutoRun', this.controller.btnAutoRun);
+        applyToElement('btnAction1', this.controller.btnAction1);
+        applyToElement('btnAction2', this.controller.btnAction2);
+        applyToElement('btnSettings', this.controller.btnSettings);
+        applyToElement('btnFullscreen', this.controller.btnFullscreen);
+        
+        applyToElement('minimap', document.getElementById('minimap-container') || document.getElementById('minimap') || document.querySelector('.minimap'));
+        applyToElement('compass', document.getElementById('fps-compass-hud'));
+        applyToElement('statusHud', document.getElementById('status-hud'));
+    }
+
+    showToast(message) {
+        let toast = document.getElementById('layout-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'layout-toast';
+            toast.style.cssText = `
+                position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+                background: rgba(0, 0, 0, 0.8); color: white; padding: 10px 20px;
+                border-radius: 20px; font-family: sans-serif; font-size: 12px; font-weight: bold;
+                z-index: 100002; transition: opacity 0.3s; opacity: 0; pointer-events: none;
+            `;
+            document.body.appendChild(toast);
+        }
+        toast.innerText = message;
+        toast.style.opacity = '1';
+        setTimeout(() => { toast.style.opacity = '0'; }, 2000);
     }
 }

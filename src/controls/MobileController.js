@@ -153,10 +153,16 @@ export class MobileController {
         this.btnSprint.innerHTML = "RUN";
         this.btnSprint.style.cssText = btnStyle + `bottom: 130px; right: 60px; width: 55px; height: 55px;`;
 
+        // UPDATE: Penambahan tombol Sneak untuk HP
+        this.btnSneak = document.createElement('div');
+        this.btnSneak.id = 'btnSneak';
+        this.btnSneak.innerHTML = "SNEAK";
+        this.btnSneak.style.cssText = btnStyle + `bottom: 190px; right: 60px; width: 50px; height: 50px; font-size: 9px;`;
+
         this.btnAutoRun = document.createElement('div');
         this.btnAutoRun.id = 'btnAutoRun';
         this.btnAutoRun.innerHTML = "AUTO";
-        this.btnAutoRun.style.cssText = btnStyle + `bottom: 190px; right: 60px; width: 50px; height: 50px; font-size: 10px;`;
+        this.btnAutoRun.style.cssText = btnStyle + `bottom: 250px; right: 60px; width: 50px; height: 50px; font-size: 10px;`;
 
         this.btnAction1 = document.createElement('div');
         this.btnAction1.id = 'btnAction1';
@@ -183,6 +189,7 @@ export class MobileController {
         this.uiContainer.appendChild(this.joyBase);
         this.uiContainer.appendChild(this.btnJump);
         this.uiContainer.appendChild(this.btnSprint);
+        this.uiContainer.appendChild(this.btnSneak); // UPDATE: Memasukkan tombol Sneak ke HUD
         this.uiContainer.appendChild(this.btnAutoRun);
         this.uiContainer.appendChild(this.btnAction1);
         this.uiContainer.appendChild(this.btnAction2);
@@ -215,6 +222,8 @@ export class MobileController {
 
         bindBtn(this.btnJump, () => { this.manager.keys.space = true; }, () => { this.manager.keys.space = false; });
         bindBtn(this.btnSprint, () => { this.manager.isJoySprinting = true; }, () => { this.manager.isJoySprinting = false; });
+        // UPDATE: Integrasi mekanik tombol Sneak HP ke state manager
+        bindBtn(this.btnSneak, () => { this.manager.keys.c = true; }, () => { this.manager.keys.c = false; });
         bindBtn(this.btnAction1, () => { this.manager.isLeftMouseDown = true; }, () => { this.manager.isLeftMouseDown = false; });
         bindBtn(this.btnAction2, () => { this.manager.isRightMouseDown = true; }, () => { this.manager.isRightMouseDown = false; });
 
@@ -402,7 +411,6 @@ export class MobileController {
         if (this.enabled) return;
         this.enabled = true;
 
-        // Hanya tampilkan UI jika pemain sudah memilih role
         if (this.manager && this.manager.uiManager && this.manager.uiManager.currentRole) {
             this.uiContainer.style.display = 'block';
         } else {
@@ -421,23 +429,5 @@ export class MobileController {
         this.uiContainer.style.display = 'none';
         
         if (this.orientationOverlay) this.orientationOverlay.style.display = 'none';
-
-        this.joystickData.active = false;
-        this.lookData.active = false;
-        this.manager.joyMoveX = 0;
-        this.manager.joyMoveZ = 0;
-        this.manager.isJoySprinting = false;
-        this.manager.isAutoRun = false;
-        this.updateAutoRunUI(false);
-        this.manager.keys.space = false;
-        this.manager.isLeftMouseDown = false;
-        this.manager.isRightMouseDown = false;
-        
-        const data = this.layoutEditor ? this.layoutEditor.layoutData['joyBase'] : null;
-        if (!data) {
-            this.joyBase.style.left = '120px';
-            this.joyBase.style.top = 'calc(100vh - 120px)';
-        }
-        this.joyStick.style.transform = 'translate(-50%, -50%)';
     }
 }

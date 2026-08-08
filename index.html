@@ -26,117 +26,52 @@
                 <div class="loading-bar-track">
                     <div id="loading-bar-fill" class="loading-bar-fill"></div>
                 </div>
-                <div id="loading-tips" class="loading-tips-text">Tips: Gunakan mode Developer untuk menata bangunan dan vegetasi sesukamu!</div>
+                <div id="loading-tips" class="loading-tips-text">Tips: Buka menu Pengaturan > Pengembangan untuk mengakses fitur World Editor!</div>
             </div>
         </div>
     </div>
 
-    <!-- Tombol Saklar Mode -->
+    <!-- MODAL PENGUMUMAN UPDATE TERBARU -->
+    <div id="announcement-modal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 999998; font-family: 'Segoe UI', Roboto, sans-serif; user-select: none; -webkit-user-select: none;">
+        <div style="background: rgba(40, 40, 40, 0.3); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: none; border-radius: 20px; padding: 30px; width: 550px; max-width: 90%; color: #f8fafc; box-shadow: 0 25px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px;">
+                <h2 style="margin: 0; font-size: 20px; color: #38bdf8; font-weight: 800; letter-spacing: 1px;">📢 PENGUMUMAN UPDATE TERBARU</h2>
+                <span style="font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 4px 10px; border-radius: 12px; font-weight: bold;">v5.0.0</span>
+            </div>
+
+            <div style="font-size: 12px; color: #94a3b8; font-weight: 600;">
+                📅 Tanggal Update Terakhir: <span style="color: #f59e0b;">Sabtu, 8 Agustus 2026</span>
+            </div>
+
+            <div style="background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 12px; max-height: 250px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: #cbd5e1;">
+                <div style="margin-bottom: 10px; font-weight: bold; color: #38bdf8;">🔥 Rincian Perubahan & Fitur Baru:</div>
+                <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px;">
+                    <li><b>🌍 Fondasi Kota & Karakter:</b> Loading model 3D karakter kustom berjalan mulus, lengkap dengan sistem UI dasar seperti Compass dan Minimap.</li>
+                    <li><b>🔊 Fisika & Audio Realistis:</b> Karakter kini dapat membaca kontur tanah dengan presisi (anti-nembus bumi). Ditambah suara langkah kaki dinamis yang otomatis berubah sesuai pijakan (aspal, rumput, atau kayu), serta efek goyangan angin pada pepohonan.</li>
+                    <li><b>💨 Visual Effects (VFX):</b> Penambahan partikel debu dinamis yang akan mengepul secara natural saat karakter berlari kencang <i>(Sprint)</i> atau saat mendarat keras dari tempat tinggi.</li>
+                    <li><b>🏃 Mekanik Karakter Lanjutan & Kamera AAA:</b>
+                        <ul style="margin-top: 4px; padding-left: 15px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #94a3b8;">
+                            <li><b>Kamera Cerdas:</b> Sistem kamera responsif anti-nembus tembok bangunan (Spring Arm Collision).</li>
+                            <li><b>Sistem Stamina:</b> Karakter kini memiliki batas napas saat berlari, dilengkapi UI <i>Stamina Bar</i> interaktif.</li>
+                            <li><b>Fisika Lompatan:</b> Penerapan lompatan realistis (hanya bisa melompat satu kali saat menyentuh tanah).</li>
+                            <li><b>Mode Mengendap (Stealth):</b> Karakter bisa berjongkok dan mengendap tanpa menimbulkan suara langkah kaki.</li>
+                            <li><b>Kontrol Mobile:</b> Penambahan tombol <i>Sneak</i> pada HUD layar HP yang letaknya bisa dikustomisasi sebebasnya melalui Layout Editor.</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <button id="btn-close-announcement" style="width: 100%; padding: 14px; background: #38bdf8; color: #0f172a; border: none; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);">▶ MASUK KE GAME</button>
+        </div>
+    </div>
+
+    <!-- Tombol Saklar Mode Editor Floating -->
     <button id="btn-toggle-mode" class="btn-mode">🎮 MODE: BERMAIN (Klik untuk ubah)</button>
     <button id="btn-mobile-menu">MENU</button>
 
-    <div id="blocker">
-        <h2 class="pause-title">Pilih Peran Anda:</h2>
-
-        <!-- PEMILIHAN ROLE -->
-        <div id="role-selection">
-            <div class="role-card" id="role-player">
-                <h2>PLAYER</h2>
-                <p>Mainkan game, berlari, melompat, dan bereksplorasi tanpa merubah dunia.</p>
-            </div>
-            <div class="role-card" id="role-developer">
-                <h2>DEVELOPER</h2>
-                <p>Akses penuh. Pahat gunung, tambahkan karakter, upload tekstur, dan sebar objek.</p>
-            </div>
-        </div>
-
-        <!-- Wadah UI Kaca Utama -->
-        <div class="pause-container" id="ui-container">
-            <div class="tabs-sidebar" id="sidebar-tabs">
-                <button class="tab-btn active dev-only" data-target="tab-karakter">Karakter Pemain</button>
-                <button class="tab-btn dev-only" data-target="tab-assets">Tambahkan Assets</button>
-                <button class="tab-btn dev-only" data-target="tab-environment">Lingkungan (Map)</button>
-                <button class="tab-btn player-active" data-target="tab-settings">Pengaturan</button>
-            </div>
-
-            <!-- TAB 1: KARAKTER -->
-            <div id="tab-karakter" class="tab-content active dev-only-content">
-                <div id="drop-zone-karakter" class="drop-zone-glass">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                    <span id="drop-text-karakter">Tarik File Karakter<br>(.glb / .gltf)</span>
-                </div>
-                <div class="anim-config-menu" id="anim-config-menu" style="display: none;">
-                    <h3>Sistem Animasi</h3>
-                    <div class="config-row"><label>Diam (Idle):</label><select id="sel-idle"><option value="">-- Pilih --</option></select></div>
-                    <div class="config-row"><label>Jalan (Walk):</label><select id="sel-walk"><option value="">-- Pilih --</option></select></div>
-                    <div class="config-row"><label>Lari (Run):</label><select id="sel-run"><option value="">-- Pilih --</option></select></div>
-                    <div class="config-row"><label>Lompat (Jump):</label><select id="sel-jump"><option value="">-- Pilih --</option></select></div>
-                </div>
-            </div>
-
-            <!-- TAB 2: ASSETS -->
-            <div id="tab-assets" class="tab-content dev-only-content">
-                <div style="display: flex; gap: 15px;">
-                    <div id="drop-zone-assets" class="drop-zone-glass">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-                        <span id="drop-text-assets">Tarik File World<br>(.glb / .gltf)</span>
-                    </div>
-                    <div id="drop-zone-fbx" class="drop-zone-glass">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-                        <span id="drop-text-fbx">Tarik File World<br>(.fbx)</span>
-                    </div>
-                </div>
-                <div class="anim-config-menu" style="color: #bbb; font-size: 12px; line-height: 1.6; max-width: 180px;">
-                    <p>Asset 3D yang diunggah akan masuk ke dalam <b>Hotbar Mode Editor (Q/E)</b> untuk diletakkan ke dunia.</p>
-                </div>
-            </div>
-
-            <!-- TAB 3: ENVIRONMENT -->
-            <div id="tab-environment" class="tab-content dev-only-content">
-                <div id="drop-zone-texture" class="drop-zone-glass">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    <span id="drop-text-texture">Tarik Gambar<br>(.png / .jpg)</span>
-                </div>
-                <div class="anim-config-menu" style="width: 220px;">
-                    <h3>Kumpulan Texture</h3>
-                    <div id="texture-gallery" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; max-width: 100%;">
-                        <span style="color:#aaa; font-size:11px;">Belum ada tekstur.</span>
-                    </div>
-                    <p style="color: #aaa; font-size: 11px; margin-top: 10px; line-height: 1.4;">*Klik tekstur lalu tahan klik kiri di map untuk mewarnai tanah sesuai lingkaran kuas.</p>
-                </div>
-            </div>
-
-            <!-- TAB 4: SETTINGS -->
-            <div id="tab-settings" class="tab-content">
-                <div class="anim-config-menu" style="width: 100%; align-items:center;">
-                    <h3 style="text-align:center;">Pengaturan Permainan</h3>
-                    <div class="config-row" style="width:100%; justify-content:center; gap:20px;">
-                        <label>Tipe Kontrol:</label>
-                        <select id="sel-control-type" style="width: 150px;">
-                            <option value="pc">PC (Keyboard/Mouse)</option>
-                            <option value="mobile">HP (Touchscreen)</option>
-                        </select>
-                    </div>
-                    <div class="config-row" style="width:100%; justify-content:center; gap:20px;">
-                        <label>Siklus Waktu:</label>
-                        <select id="sel-time-cycle" style="width: 150px;">
-                            <option value="auto">Berjalan Otomatis</option>
-                            <option value="00">Jam 00:00 (Tengah Malam)</option>
-                            <option value="03">Jam 03:00 (Dini Hari)</option>
-                            <option value="06">Jam 06:00 (Fajar)</option>
-                            <option value="09">Jam 09:00 (Pagi)</option>
-                            <option value="12">Jam 12:00 (Tengah Hari)</option>
-                            <option value="15">Jam 15:00 (Sore Terang)</option>
-                            <option value="18">Jam 18:00 (Senja/Sunset)</option>
-                            <option value="21">Jam 21:00 (Malam)</option>
-                        </select>
-                    </div>
-                    <p style="color: #aaa; font-size: 11px; text-align:center; margin-bottom: 20px;">*Klik layar gelap di luar kaca untuk melanjutkan permainan.</p>
-                    <hr style="width:100%; border-color:rgba(255,255,255,0.2); margin-bottom:20px;">
-                    <button id="btn-logout" style="background: rgba(255, 0, 0, 0.4); border:1px solid rgba(255,255,255,0.3); padding: 10px 30px; border-radius: 8px; font-weight:bold; width: 100%;">LOGOUT (Ganti Role)</button>
-                </div>
-            </div>
-        </div>
+    <div id="blocker" style="display: none;">
+        <!-- Wadah UI Utama Disembunyikan karena sudah dipindahkan ke PlayerSettings -->
+        <div class="pause-container" id="ui-container" style="display: none;"></div>
     </div>
     
     <!-- HUD EDITOR -->

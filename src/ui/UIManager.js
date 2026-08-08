@@ -11,7 +11,8 @@ export class UIManager {
             this.game.input.uiManager = this;
         }
 
-        this.currentRole = null;
+        // PERAN DEFAULT OTOMATIS: PLAYER
+        this.currentRole = 'player';
         this.isEditorMode = false;
         this.activeEditorTool = 1;
         this.editorBrushSize = 5.0;
@@ -50,6 +51,9 @@ export class UIManager {
         this.initEditorHotkeys();
         this.initDropZones();
         this.initDefaultTextures();
+        
+        // UPDATE: Inisialisasi UI Stamina
+        this.initStaminaHUD();
 
         this.autoLoadCategoryModels();
 
@@ -60,6 +64,27 @@ export class UIManager {
         }, 100);
     }
 
+    initStaminaHUD() {
+        const container = document.createElement('div');
+        container.id = 'stamina-container';
+        container.style.cssText = `
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 250px; height: 10px; background: rgba(0,0,0,0.6);
+            border-radius: 5px; border: 2px solid #222; z-index: 8000;
+            transition: opacity 0.3s; opacity: 0; pointer-events: none;
+        `;
+
+        const fill = document.createElement('div');
+        fill.id = 'stamina-fill';
+        fill.style.cssText = `
+            width: 100%; height: 100%; background: linear-gradient(90deg, #f59e0b, #facc15);
+            border-radius: 3px; transition: width 0.1s linear;
+        `;
+
+        container.appendChild(fill);
+        document.body.appendChild(container);
+    }
+
     initLoadingScreenUI() {
         this.loadingScreen = document.getElementById('game-loading-screen');
         this.loadingTaskName = document.getElementById('loading-task-name');
@@ -68,10 +93,10 @@ export class UIManager {
         this.loadingTips = document.getElementById('loading-tips');
 
         const tipsList = [
-            "Tips: Gunakan mode Developer untuk menata bangunan dan vegetasi sesukamu!",
+            "Tips: Buka menu Pengaturan > Pengembangan untuk mengakses fitur World Editor!",
             "Tips: Tekan tombol [ ~ ] untuk melepaskan kursor mouse secara instan.",
             "Tips: Tahan tombol SHIFT saat berlari untuk berpindah posisi lebih cepat!",
-            "Tips: Pilih peran Player jika kamu ingin menjelajah dunia secara murni."
+            "Tips: Tekan tombol [ TAB ] untuk melihat Peta Kota Luas (Expanded Map)."
         ];
 
         let tipIndex = 0;
@@ -107,23 +132,15 @@ export class UIManager {
             this.updateLoadingProgress(100, "Siap Dimulai!");
             setTimeout(() => {
                 this.loadingScreen.classList.add('fade-out');
-                
-                // Jika belum memilih role, paksa tampilkan menu Pemilihan Peran (Player/Developer) lebih dulu
-                if (!this.currentRole) {
-                    const blocker = document.getElementById('blocker');
-                    const roleSelection = document.getElementById('role-selection');
-                    const uiContainer = document.getElementById('ui-container');
-                    
-                    if (blocker) blocker.style.display = 'flex';
-                    if (roleSelection) roleSelection.style.display = 'flex';
-                    if (uiContainer) uiContainer.style.display = 'none';
-
-                    // Sembunyikan tombol mobile HUD sampai peran dipilih
-                    if (this.game && this.game.input && this.game.input.mobileController) {
-                        this.game.input.mobileController.uiContainer.style.display = 'none';
-                    }
-                }
+                this.showAnnouncementModal();
             }, 600);
+        }
+    }
+
+    showAnnouncementModal() {
+        const annModal = document.getElementById('announcement-modal');
+        if (annModal) {
+            annModal.style.display = 'flex';
         }
     }
 
@@ -356,11 +373,11 @@ export class UIManager {
         const editorHud = document.getElementById('editor-hud');
         const hotbar = document.getElementById('hotbar-container');
         const categoryBar = document.getElementById('category-bar');
-        const roleSelection = document.getElementById('role-selection');
-        const uiContainer = document.getElementById('ui-container');
 
-        blocker.style.display = 'flex';
-        blocker.style.zIndex = '99999'; 
+        if (blocker) {
+            blocker.style.display = 'flex';
+            blocker.style.zIndex = '99999'; 
+        }
 
         if (this.game && this.game.input && this.game.input.mobileController && this.game.input.controlType === 'mobile') {
             this.game.input.mobileController.uiContainer.style.display = 'none';
@@ -373,43 +390,18 @@ export class UIManager {
         if (this.brushRingMesh) this.brushRingMesh.visible = false;
 
         this.playerSettings.updateUIMode();
-
-        if (!this.currentRole) {
-            if (roleSelection) roleSelection.style.display = 'flex';
-            if (uiContainer) uiContainer.style.display = 'none';
-            this.playerSettings.modal.style.display = 'none';
-            const pt = document.querySelector('.pause-title');
-            if (pt) {
-                pt.style.display = 'block';
-                pt.innerText = "Pilih Peran Anda:";
-            }
-        } else if (this.currentRole === 'player') {
-            if (uiContainer) uiContainer.style.display = 'none';
-            if (roleSelection) roleSelection.style.display = 'none';
-            const pt = document.querySelector('.pause-title');
-            if (pt) pt.style.display = 'none';
-            this.playerSettings.modal.style.display = 'flex';
-        } else if (this.currentRole === 'developer') {
-            if (uiContainer) uiContainer.style.display = 'flex';
-            if (roleSelection) roleSelection.style.display = 'none';
-            this.playerSettings.modal.style.display = 'none';
-            const pt = document.querySelector('.pause-title');
-            if (pt) {
-                pt.style.display = 'block';
-                pt.innerText = "Klik layar gelap di luar kotak kaca untuk melanjutkan";
-            }
-        }
+        this.playerSettings.modal.style.display = 'flex';
     }
 
     resumeGame() {
-        if (!this.currentRole) return; // Mencegah masuk ke game jika belum pilih role
-
         this.isCursorOnlyMode = false;
+
+        const annModal = document.getElementById('announcement-modal');
+        if (annModal) annModal.style.display = 'none';
         
         if (this.game && this.game.input && this.game.input.controlType === 'mobile') {
             document.getElementById('blocker').style.display = 'none';
             document.getElementById('btn-toggle-mode').style.display = 'none';
-            document.getElementById('ui-container').style.display = 'none';
             this.playerSettings.modal.style.display = 'none';
             
             this.game.input.mobileController.uiContainer.style.display = 'block';
@@ -421,6 +413,9 @@ export class UIManager {
             this.updateEditorHudColors();
             this.renderHotbar();
         } else {
+            const blocker = document.getElementById('blocker');
+            if (blocker) blocker.style.display = 'none';
+            this.playerSettings.modal.style.display = 'none';
             document.body.requestPointerLock().catch(() => {});
         }
     }
@@ -429,12 +424,18 @@ export class UIManager {
         const blocker = document.getElementById('blocker');
         this.playerSettings.mount(blocker);
 
-        const roleSelection = document.getElementById('role-selection');
-        const uiContainer = document.getElementById('ui-container');
         const btnToggleMode = document.getElementById('btn-toggle-mode');
         const editorHud = document.getElementById('editor-hud');
         const hotbar = document.getElementById('hotbar-container');
         const categoryBar = document.getElementById('category-bar');
+
+        const btnCloseAnn = document.getElementById('btn-close-announcement');
+        if (btnCloseAnn) {
+            btnCloseAnn.onclick = (e) => {
+                e.stopPropagation();
+                this.resumeGame();
+            };
+        }
 
         const selTimeCycle = document.getElementById('sel-time-cycle');
         if (selTimeCycle) {
@@ -483,26 +484,24 @@ export class UIManager {
             this.pauseGame();
         });
 
-        document.getElementById('role-player').onclick = () => this.setRole('player');
-        document.getElementById('role-developer').onclick = () => this.setRole('developer');
-        document.getElementById('btn-logout').onclick = () => this.logout();
-
-        btnToggleMode.onclick = () => {
-            this.isEditorMode = !this.isEditorMode;
-            if (this.isEditorMode) {
-                btnToggleMode.innerHTML = "🛠️ MODE: EDITOR (Klik untuk ubah)";
-                btnToggleMode.classList.add('editor-active');
-            } else {
-                btnToggleMode.innerHTML = "🎮 MODE: BERMAIN (Klik untuk ubah)";
-                btnToggleMode.classList.remove('editor-active');
-                editorHud.style.display = 'none';
-                hotbar.style.display = 'none';
-                if (categoryBar) categoryBar.style.display = 'none';
-                this.brushRingMesh.visible = false;
-            }
-            this.updateEditorHudColors();
-            this.renderHotbar();
-        };
+        if (btnToggleMode) {
+            btnToggleMode.onclick = () => {
+                this.isEditorMode = !this.isEditorMode;
+                if (this.isEditorMode) {
+                    btnToggleMode.innerHTML = "🛠️ MODE: EDITOR (Klik untuk ubah)";
+                    btnToggleMode.classList.add('editor-active');
+                } else {
+                    btnToggleMode.innerHTML = "🎮 MODE: BERMAIN (Klik untuk ubah)";
+                    btnToggleMode.classList.remove('editor-active');
+                    editorHud.style.display = 'none';
+                    hotbar.style.display = 'none';
+                    if (categoryBar) categoryBar.style.display = 'none';
+                    this.brushRingMesh.visible = false;
+                }
+                this.updateEditorHudColors();
+                this.renderHotbar();
+            };
+        }
 
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Backquote' || e.key === '`') {
@@ -516,21 +515,20 @@ export class UIManager {
             }
         });
 
-        blocker.onclick = (e) => {
-            if (!this.currentRole) return;
-            if (uiContainer.contains(e.target) || roleSelection.contains(e.target) || this.playerSettings.modal.contains(e.target)) return;
-            this.resumeGame();
-        };
+        if (blocker) {
+            blocker.onclick = (e) => {
+                const annModal = document.getElementById('announcement-modal');
+                if ((annModal && annModal.contains(e.target)) || this.playerSettings.modal.contains(e.target)) return;
+                this.resumeGame();
+            };
+        }
 
         document.addEventListener('pointerlockchange', () => {
-            if (!this.currentRole) return;
-
             if (document.pointerLockElement === document.body) {
                 this.isCursorOnlyMode = false;
-                blocker.style.display = 'none';
-                btnToggleMode.style.display = 'none';
+                if (blocker) blocker.style.display = 'none';
+                if (btnToggleMode) btnToggleMode.style.display = 'none';
                 
-                uiContainer.style.display = 'none';
                 this.playerSettings.modal.style.display = 'none';
 
                 if (this.isEditorMode && this.currentRole === 'developer') editorHud.style.display = 'block';
@@ -538,67 +536,20 @@ export class UIManager {
                 this.renderHotbar();
             } else {
                 if (this.isCursorOnlyMode) {
-                    blocker.style.display = 'none';
-                    btnToggleMode.style.display = (this.currentRole === 'developer') ? 'block' : 'none';
+                    if (blocker) blocker.style.display = 'none';
+                    if (btnToggleMode) btnToggleMode.style.display = (this.currentRole === 'developer') ? 'block' : 'none';
                 } else {
-                    this.pauseGame();
+                    const annModal = document.getElementById('announcement-modal');
+                    if (!annModal || annModal.style.display !== 'flex') {
+                        this.pauseGame();
+                    }
                 }
             }
-        });
-
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                btn.classList.add('active');
-                document.getElementById(btn.getAttribute('data-target')).classList.add('active');
-                if (btn.getAttribute('data-target') === 'tab-environment') this.renderTextureGallery();
-            };
         });
     }
 
     closeSettings() {
-        if (this.currentRole === 'developer') {
-            this.playerSettings.modal.style.display = 'none';
-            document.getElementById('ui-container').style.display = 'flex';
-            const btnSet = document.getElementById('btn-open-settings');
-            if(btnSet) btnSet.style.display = 'block';
-            
-            if (this.game && this.game.input && this.game.input.controlType === 'mobile') {
-                this.game.input.mobileController.uiContainer.style.display = 'block';
-            }
-        } else if (this.currentRole === 'player') {
-            this.resumeGame(); 
-        }
-    }
-
-    logout() {
-        this.currentRole = null;
-        this.isEditorMode = false;
-        this.isCursorOnlyMode = false;
-        
-        document.getElementById('btn-toggle-mode').style.display = 'none';
-        if (document.getElementById('editor-hud')) document.getElementById('editor-hud').style.display = 'none';
-        if (document.getElementById('hotbar-container')) document.getElementById('hotbar-container').style.display = 'none';
-        if (document.getElementById('category-bar')) document.getElementById('category-bar').style.display = 'none';
-        
-        document.getElementById('ui-container').style.display = 'none';
-        this.playerSettings.modal.style.display = 'none';
-        const btnSet = document.getElementById('btn-open-settings');
-        if (btnSet) btnSet.style.display = 'none';
-        
-        // Sembunyikan kontrol HP saat logout
-        if (this.game && this.game.input && this.game.input.mobileController) {
-            this.game.input.mobileController.uiContainer.style.display = 'none';
-        }
-
-        document.getElementById('role-selection').style.display = 'flex';
-        document.getElementById('blocker').style.display = 'flex';
-        const pt = document.querySelector('.pause-title');
-        if (pt) {
-            pt.style.display = 'block';
-            pt.innerText = "Pilih Peran Anda:";
-        }
+        this.resumeGame(); 
     }
 
     initEditorHotkeys() {
@@ -660,17 +611,17 @@ export class UIManager {
 
     setRole(role) {
         this.currentRole = role;
-        document.getElementById('role-selection').style.display = 'none';
+        const btnToggleMode = document.getElementById('btn-toggle-mode');
 
         if (role === 'player') {
-            document.getElementById('btn-toggle-mode').style.display = 'none';
-            document.querySelectorAll('.dev-only').forEach(el => el.style.display = 'none');
+            if (btnToggleMode) btnToggleMode.style.display = 'none';
+            this.isEditorMode = false;
         } else {
-            document.getElementById('btn-toggle-mode').style.display = 'block';
-            document.querySelectorAll('.dev-only').forEach(el => el.style.display = 'block');
+            if (btnToggleMode) btnToggleMode.style.display = 'block';
         }
 
-        this.resumeGame();
+        this.updateEditorHudColors();
+        this.renderHotbar();
     }
 
     initDropZones() {
