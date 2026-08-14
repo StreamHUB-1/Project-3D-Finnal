@@ -153,7 +153,6 @@ export class MobileController {
         this.btnSprint.innerHTML = "RUN";
         this.btnSprint.style.cssText = btnStyle + `bottom: 130px; right: 60px; width: 55px; height: 55px;`;
 
-        // UPDATE: Penambahan tombol Sneak untuk HP
         this.btnSneak = document.createElement('div');
         this.btnSneak.id = 'btnSneak';
         this.btnSneak.innerHTML = "SNEAK";
@@ -163,6 +162,22 @@ export class MobileController {
         this.btnAutoRun.id = 'btnAutoRun';
         this.btnAutoRun.innerHTML = "AUTO";
         this.btnAutoRun.style.cssText = btnStyle + `bottom: 250px; right: 60px; width: 50px; height: 50px; font-size: 10px;`;
+
+        // UPDATE: Tombol Tambahan Buat Parkour, Interaksi, & Looting di Layar Kanan
+        this.btnRoll = document.createElement('div');
+        this.btnRoll.id = 'btnRoll';
+        this.btnRoll.innerHTML = "ROLL";
+        this.btnRoll.style.cssText = btnStyle + `bottom: 40px; right: 200px; width: 60px; height: 60px;`;
+
+        this.btnInteract = document.createElement('div');
+        this.btnInteract.id = 'btnInteract';
+        this.btnInteract.innerHTML = "HAND";
+        this.btnInteract.style.cssText = btnStyle + `bottom: 160px; right: 130px; width: 55px; height: 55px;`;
+
+        this.btnDrink = document.createElement('div');
+        this.btnDrink.id = 'btnDrink';
+        this.btnDrink.innerHTML = "DRINK";
+        this.btnDrink.style.cssText = btnStyle + `bottom: 220px; right: 130px; width: 50px; height: 50px; font-size: 9px;`;
 
         this.btnAction1 = document.createElement('div');
         this.btnAction1.id = 'btnAction1';
@@ -189,8 +204,11 @@ export class MobileController {
         this.uiContainer.appendChild(this.joyBase);
         this.uiContainer.appendChild(this.btnJump);
         this.uiContainer.appendChild(this.btnSprint);
-        this.uiContainer.appendChild(this.btnSneak); // UPDATE: Memasukkan tombol Sneak ke HUD
+        this.uiContainer.appendChild(this.btnSneak); 
         this.uiContainer.appendChild(this.btnAutoRun);
+        this.uiContainer.appendChild(this.btnRoll);     // Tambahan
+        this.uiContainer.appendChild(this.btnInteract); // Tambahan
+        this.uiContainer.appendChild(this.btnDrink);    // Tambahan
         this.uiContainer.appendChild(this.btnAction1);
         this.uiContainer.appendChild(this.btnAction2);
         this.uiContainer.appendChild(this.btnSettings);
@@ -222,8 +240,13 @@ export class MobileController {
 
         bindBtn(this.btnJump, () => { this.manager.keys.space = true; }, () => { this.manager.keys.space = false; });
         bindBtn(this.btnSprint, () => { this.manager.isJoySprinting = true; }, () => { this.manager.isJoySprinting = false; });
-        // UPDATE: Integrasi mekanik tombol Sneak HP ke state manager
         bindBtn(this.btnSneak, () => { this.manager.keys.c = true; }, () => { this.manager.keys.c = false; });
+        
+        // UPDATE: Biding logika tombol baru ke Input Manager
+        bindBtn(this.btnRoll, () => { this.manager.keys.alt = true; }, () => { this.manager.keys.alt = false; });
+        bindBtn(this.btnInteract, () => { this.manager.keys.f = true; }, () => { this.manager.keys.f = false; });
+        bindBtn(this.btnDrink, () => { this.manager.keys.x = true; }, () => { this.manager.keys.x = false; });
+        
         bindBtn(this.btnAction1, () => { this.manager.isLeftMouseDown = true; }, () => { this.manager.isLeftMouseDown = false; });
         bindBtn(this.btnAction2, () => { this.manager.isRightMouseDown = true; }, () => { this.manager.isRightMouseDown = false; });
 

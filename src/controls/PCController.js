@@ -44,6 +44,10 @@ export class PCController {
 
     onKeyDown(e) {
         const key = e.key.toLowerCase();
+        
+        // Mencegah menu browser kebuka pas pencet tombol Alt buat Roll/Dodge
+        if (key === 'alt') e.preventDefault();
+
         if (this.manager.keys.hasOwnProperty(key)) this.manager.keys[key] = true;
         if (e.code === 'Space') this.manager.keys.space = true;
 
@@ -66,6 +70,9 @@ export class PCController {
 
     onKeyUp(e) {
         const key = e.key.toLowerCase();
+        
+        if (key === 'alt') e.preventDefault();
+
         if (this.manager.keys.hasOwnProperty(key)) this.manager.keys[key] = false;
         if (e.code === 'Space') this.manager.keys.space = false;
     }

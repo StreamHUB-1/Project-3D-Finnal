@@ -36,28 +36,35 @@
         <div style="background: rgba(40, 40, 40, 0.3); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: none; border-radius: 20px; padding: 30px; width: 550px; max-width: 90%; color: #f8fafc; box-shadow: 0 25px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px;">
                 <h2 style="margin: 0; font-size: 20px; color: #38bdf8; font-weight: 800; letter-spacing: 1px;">📢 PENGUMUMAN UPDATE TERBARU</h2>
-                <span style="font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 4px 10px; border-radius: 12px; font-weight: bold;">v5.0.0</span>
+                <span style="font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 4px 10px; border-radius: 12px; font-weight: bold;">v5.5.0</span>
             </div>
 
             <div style="font-size: 12px; color: #94a3b8; font-weight: 600;">
-                📅 Tanggal Update Terakhir: <span style="color: #f59e0b;">Sabtu, 8 Agustus 2026</span>
+                📅 Tanggal Update Terakhir: <span style="color: #f59e0b;">Sabtu, 15 Agustus 2026</span>
             </div>
 
             <div style="background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 12px; max-height: 250px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: #cbd5e1;">
                 <div style="margin-bottom: 10px; font-weight: bold; color: #38bdf8;">🔥 Rincian Perubahan & Fitur Baru:</div>
                 <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px;">
-                    <li><b>🌍 Fondasi Kota & Karakter:</b> Loading model 3D karakter kustom berjalan mulus, lengkap dengan sistem UI dasar seperti Compass dan Minimap.</li>
-                    <li><b>🔊 Fisika & Audio Realistis:</b> Karakter kini dapat membaca kontur tanah dengan presisi (anti-nembus bumi). Ditambah suara langkah kaki dinamis yang otomatis berubah sesuai pijakan (aspal, rumput, atau kayu), serta efek goyangan angin pada pepohonan.</li>
-                    <li><b>💨 Visual Effects (VFX):</b> Penambahan partikel debu dinamis yang akan mengepul secara natural saat karakter berlari kencang <i>(Sprint)</i> atau saat mendarat keras dari tempat tinggi.</li>
-                    <li><b>🏃 Mekanik Karakter Lanjutan & Kamera AAA:</b>
+                    <li><b>🧗 Sistem Parkour & Smart Vaulting:</b>
                         <ul style="margin-top: 4px; padding-left: 15px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #94a3b8;">
-                            <li><b>Kamera Cerdas:</b> Sistem kamera responsif anti-nembus tembok bangunan (Spring Arm Collision).</li>
-                            <li><b>Sistem Stamina:</b> Karakter kini memiliki batas napas saat berlari, dilengkapi UI <i>Stamina Bar</i> interaktif.</li>
-                            <li><b>Fisika Lompatan:</b> Penerapan lompatan realistis (hanya bisa melompat satu kali saat menyentuh tanah).</li>
-                            <li><b>Mode Mengendap (Stealth):</b> Karakter bisa berjongkok dan mengendap tanpa menimbulkan suara langkah kaki.</li>
-                            <li><b>Kontrol Mobile:</b> Penambahan tombol <i>Sneak</i> pada HUD layar HP yang letaknya bisa dikustomisasi sebebasnya melalui Layout Editor.</li>
+                            <li><b>Low Obstacle / Pagar Tipis (≤ 2.0m):</b> Cukup tekan <i>Spasi</i> sekali saat berada di tanah untuk melompati rintangan secara instan <i>(Ground Vault)</i>.</li>
+                            <li><b>High Ledge Grab (≤ 2.5m):</b> Tembok atau atap tinggi kini dapat dipanjat dengan melompat terlebih dahulu ke udara, lalu menekan <i>Spasi</i> untuk meraih bibir tembok <i>(Mid-Air Climb)</i>.</li>
                         </ul>
                     </li>
+                    <li><b>🦘 Fisika Lompatan Responsif (AAA Jump):</b>
+                        <ul style="margin-top: 4px; padding-left: 15px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #94a3b8;">
+                            <li>Sinkronisasi instan antara animasi lepas landas dengan dorongan fisika vertikal tanpa jeda <i>wind-up</i>.</li>
+                            <li>Kalibrasi ketinggian lompatan berbobot natural dan transisi pendaratan <i>(Landing Blend)</i> yang mulus.</li>
+                        </ul>
+                    </li>
+                    <li><b>⚡ Mekanik Sliding & Burst Speed:</b>
+                        <ul style="margin-top: 4px; padding-left: 15px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #94a3b8;">
+                            <li>Melakukan seluncur saat lari kencang <i>(Shift + C)</i> kini memberikan dorongan akselerasi di awal sebelum mengalami deselerasi bertahap.</li>
+                            <li>Efek semburan debu tebal saat melakukan sliding pada permukaan aspal dan tanah.</li>
+                        </ul>
+                    </li>
+                    <li><b>👣 Kalibrasi Grounding & Proporsi:</b> Postur karakter skala 1.8 kini menapak aspal secara sempurna tanpa efek melayang atau amblas ke dalam tanah.</li>
                 </ul>
             </div>
 
