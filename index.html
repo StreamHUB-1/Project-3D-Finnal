@@ -36,18 +36,38 @@
         <div style="background: rgba(40, 40, 40, 0.3); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: none; border-radius: 20px; padding: 30px; width: 550px; max-width: 90%; color: #f8fafc; box-shadow: 0 25px 60px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 12px;">
                 <h2 style="margin: 0; font-size: 20px; color: #38bdf8; font-weight: 800; letter-spacing: 1px;">📢 PENGUMUMAN UPDATE TERBARU</h2>
-                <span style="font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 4px 10px; border-radius: 12px; font-weight: bold;">v5.5.0</span>
+                <!-- PEMBARUAN: Versi ditingkatkan ke v5.6.0 -->
+                <span style="font-size: 11px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 4px 10px; border-radius: 12px; font-weight: bold;">v5.6.0</span>
             </div>
 
             <div style="font-size: 12px; color: #94a3b8; font-weight: 600;">
-                📅 Tanggal Update Terakhir: <span style="color: #f59e0b;">Sabtu, 15 Agustus 2026</span>
+                <!-- PEMBARUAN: Tanggal disesuaikan ke hari ini (Kamis, 20 Agustus 2026) -->
+                📅 Tanggal Update Terakhir: <span style="color: #f59e0b;">Kamis, 20 Agustus 2026</span>
             </div>
 
             <div style="background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 12px; max-height: 250px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: #cbd5e1;">
                 <div style="margin-bottom: 10px; font-weight: bold; color: #38bdf8;">🔥 Rincian Perubahan & Fitur Baru:</div>
                 <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px;">
-                    <li><b>🧗 Sistem Parkour & Smart Vaulting:</b>
+                    <!-- PEMBARUAN: Penambahan Patch Notes untuk Sistem Lampu & Optimasi -->
+                    <li><b>🌃 Sistem Penerangan Kota Pintar (Smart Light Pooling):</b>
                         <ul style="margin-top: 4px; padding-left: 15px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #94a3b8;">
+                            <li>Implementasi <i>Frustum Culling</i> dan <i>Object Pooling</i> pada lampu jalan raya. Ratusan lampu jalan kini dirender secara dinamis mengikuti arah kamera tanpa menyebabkan <i>lag</i> atau membebani memori GPU.</li>
+                            <li>Kalibrasi fisika cahaya <i>(Inverse-Square Law)</i> untuk pencahayaan aspal yang realistis di malam hari.</li>
+                        </ul>
+                    </li>
+                    <li><b>⏱️ Sinkronisasi Waktu Real-Time:</b>
+                        <ul style="margin-top: 4px; padding-left: 15px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #94a3b8;">
+                            <li>Lampu jalan kini terintegrasi langsung dengan <i>TimeCycle</i>. Otomatis menyala pada pukul 17:30 dan padam pada pukul 06:00.</li>
+                        </ul>
+                    </li>
+                    <li><b>🗜️ Optimasi Kompresi Map (DRACO):</b>
+                        <ul style="margin-top: 4px; padding-left: 15px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #94a3b8;">
+                            <li>Ukuran map utama berhasil dipangkas hingga 77% menggunakan teknologi kompresi DRACO, mempercepat proses <i>loading screen</i> secara signifikan.</li>
+                        </ul>
+                    </li>
+                    <li><b>🧗 Penyempurnaan Sistem Parkour & Smart Vaulting:</b>
+                        <ul style="margin-top: 4px; padding-left: 15px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #94a3b8;">
+                            <li>Sensor <i>Raycaster</i> pemain kini membaca Custom Property <i>climbable</i> langsung dari data Blender. Karakter kini mengetahui objek mana yang valid untuk dipanjat.</li>
                             <li><b>Low Obstacle / Pagar Tipis (≤ 2.0m):</b> Cukup tekan <i>Spasi</i> sekali saat berada di tanah untuk melompati rintangan secara instan <i>(Ground Vault)</i>.</li>
                             <li><b>High Ledge Grab (≤ 2.5m):</b> Tembok atau atap tinggi kini dapat dipanjat dengan melompat terlebih dahulu ke udara, lalu menekan <i>Spasi</i> untuk meraih bibir tembok <i>(Mid-Air Climb)</i>.</li>
                         </ul>
@@ -64,7 +84,6 @@
                             <li>Efek semburan debu tebal saat melakukan sliding pada permukaan aspal dan tanah.</li>
                         </ul>
                     </li>
-                    <li><b>👣 Kalibrasi Grounding & Proporsi:</b> Postur karakter skala 1.8 kini menapak aspal secara sempurna tanpa efek melayang atau amblas ke dalam tanah.</li>
                 </ul>
             </div>
 

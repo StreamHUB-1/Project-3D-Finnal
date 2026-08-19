@@ -41,8 +41,8 @@ class Game {
         this.timeCycle = new TimeCycle(this.engine.scene, this.engine.dirLight, this.engine.hemiLight);
         this.minimap = new Minimap(this.engine.scene);
         
-        // Inisialisasi Dunia dan Karakter (Sisa Rapier sudah dibersihkan)
-        this.world = new World(this.engine.scene, this.loadingManager);
+        // Mengirimkan this.engine.camera ke dalam instance World untuk sistem culling lampu
+        this.world = new World(this.engine.scene, this.engine.camera, this.loadingManager);
         this.audio = new AudioManager();
         this.player = new Player(this.engine.scene, this.loadingManager, this.audio);
         
@@ -164,6 +164,24 @@ class Game {
         } else {
             this.player.updatePhysics(delta, this.input, this.input.cameraAngle, this.world);
             this.updateCameraFollowPlayer();
+        }
+
+        // PEMBARUAN: Sinkronisasi waktu dengan lampu jalan (Nyala 17:30, Mati 06:00) menggunakan activeLights
+        if (this.world && this.world.lampManager) {
+            if (this.timeCycle.isNight) {
+                // Malam hari: Jalankan sistem culling lampu jalan
+                this.world.updateLamps();
+            } else {
+                // Siang hari: Bypass culling dan paksa matikan semua lampu dari Pool
+                if (this.world.lampManager.activeLights) {
+                    for (const poolLight of this.world.lampManager.activeLights) {
+                        if (poolLight.intensity > 0) {
+                            poolLight.intensity = 0;
+                            poolLight.position.set(0, -2000, 0); // Buang ke bawah tanah
+                        }
+                    }
+                }
+            }
         }
 
         if (this.player.model) {

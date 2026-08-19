@@ -571,6 +571,7 @@ export class Player {
             let highestHitY = -Infinity;
             let hitDistance = 1.6;
             let obstacleHit = false;
+            let isClimbableObject = false; // PEMBARUAN: Penanda validasi tag climbable
 
             for (let offset of scanOffsets) {
                 const probeRay = new THREE.Raycaster(
@@ -582,10 +583,17 @@ export class Player {
                     obstacleHit = true;
                     highestHitY = Math.max(highestHitY, this.lastGroundedY + offset);
                     hitDistance = hits[0].distance;
+
+                    // PEMBARUAN: Mengecek apakah objek yang ditabrak memiliki properti "climbable" bernilai true atau 1
+                    const hitObj = hits[0].object;
+                    if (hitObj.userData && (hitObj.userData.climbable === true || hitObj.userData.climbable === 1)) {
+                        isClimbableObject = true;
+                    }
                 }
             }
 
-            if (obstacleHit) {
+            // PEMBARUAN: Hanya bisa memicu aksi panjat JIKA obstacle yang ditabrak terdaftar sebagai climbable
+            if (obstacleHit && isClimbableObject) {
                 // 2. Cek apakah di atas objek ada permukaan pijakan tebal (Tembok/Atap)
                 const checkPos = new THREE.Vector3().copy(this.model.position).addScaledVector(forwardDir, hitDistance + 0.3);
                 checkPos.y = this.lastGroundedY + 5.0;
@@ -641,7 +649,7 @@ export class Player {
                 }
             }
 
-            // Eksekusi lompatan normal jika tidak memenuhi syarat panjat
+            // Eksekusi lompatan normal jika tidak memenuhi syarat panjat (atau jika nabrak objek yang BUKAN climbable)
             if (!vaultFound && this.isGrounded) {
                 this.yVelocity = this.jumpForce;
                 this.isGrounded = false;

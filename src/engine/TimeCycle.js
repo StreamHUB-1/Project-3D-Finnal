@@ -16,6 +16,10 @@ export class TimeCycle {
         this.sunSphere = new THREE.Vector3();
         this.hudTimeElement = null;
 
+        // PEMBARUAN: Variabel penanda waktu untuk sinkronisasi lampu
+        this.hoursFloat = 12.0;
+        this.isNight = false;
+
         this.buildSky();
     }
 
@@ -66,6 +70,10 @@ export class TimeCycle {
             this.dayTime = ((selectedHour + 18) % 24) / 24 * (Math.PI * 2);
         }
 
+        // PEMBARUAN: Hitung waktu global untuk mendeteksi malam hari (17:30 sampai 06:00)
+        this.hoursFloat = ((this.dayTime / (Math.PI * 2)) * 24 + 6) % 24;
+        this.isNight = this.hoursFloat >= 17.5 || this.hoursFloat < 6.0;
+
         const sunHeight = Math.sin(this.dayTime);
         const distance = 400000;
 
@@ -102,7 +110,7 @@ export class TimeCycle {
             this.stars.material.opacity = Math.max(0, -sunHeight * 2);
         }
 
-        // PERBAIKAN: Update teks Jam di HUD bawah minimap secara Real-time
+        // Update teks Jam di HUD bawah minimap secara Real-time
         if (!this.hudTimeElement) {
             this.hudTimeElement = document.getElementById('hud-time');
         }
@@ -112,9 +120,9 @@ export class TimeCycle {
     }
 
     getFormattedTime() {
-        let hoursFloat = ((this.dayTime / (Math.PI * 2)) * 24 + 6) % 24;
-        let h = Math.floor(hoursFloat);
-        let m = Math.floor((hoursFloat - h) * 60);
+        // PEMBARUAN: Gunakan hoursFloat yang sudah dihitung di update() agar sinkron
+        let h = Math.floor(this.hoursFloat);
+        let m = Math.floor((this.hoursFloat - h) * 60);
         let timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         let icon = (h >= 6 && h < 18) ? '☀️' : '🌙';
         return `${icon} ${timeStr}`;

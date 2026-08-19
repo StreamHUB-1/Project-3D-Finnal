@@ -1,14 +1,17 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { StreetLampCullingManager } from '../engine/StreetLampManager.js';
 
 /**
  * World Manager
  * Memuat dan mengelola Map Utama 3D serta sinkronisasi Collider Fisika Rapier Presisi Dunia
  */
 export class World {
-    constructor(scene, loadingManager = null, rapierWorld = null) {
+    constructor(scene, camera, loadingManager = null, rapierWorld = null) {
         this.scene = scene;
+        this.camera = camera;
         this.loadingManager = loadingManager;
         this.rapierWorld = rapierWorld;
 
@@ -22,6 +25,9 @@ export class World {
         this.mapColliders = [];
 
         this.isMapLoaded = false;
+        
+        // Objek penampung manajer lampu
+        this.lampManager = null;
 
         this.loadMainMap();
     }
@@ -31,6 +37,12 @@ export class World {
      */
     loadMainMap() {
         const loader = new GLTFLoader(this.loadingManager);
+        
+        // Inisialisasi DRACOLoader sebagai alat pembuka kompresi map
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+        loader.setDRACOLoader(dracoLoader);
+
         const mapPath = '/assets/models/maps/main_map.glb';
 
         loader.load(
@@ -59,16 +71,14 @@ export class World {
                         // Buat Collider Fisika Rapier berbasis World Matrix yang presisi
                         if (this.rapierWorld && child.geometry) {
                             try {
-                                // Clone geometri dan terapkan matriks dunia agar posisinya pas di tempatnya
                                 const geom = child.geometry.clone();
                                 geom.applyMatrix4(child.matrixWorld);
 
-                                // FIX RAPIER MEMORY: Konversi paksa data memori Three.js ke format yang dikenali Rapier WASM
                                 const vertices = new Float32Array(geom.attributes.position.array);
                                 let indices;
                                 
                                 if (geom.index) {
-                                    indices = new Uint32Array(geom.index.array); // Paksa ke Uint32Array
+                                    indices = new Uint32Array(geom.index.array);
                                 } else {
                                     const vertCount = Math.floor(vertices.length / 3);
                                     indices = new Uint32Array(vertCount);
@@ -87,11 +97,31 @@ export class World {
                             }
                         }
                     }
+                    
+                    // PEMBARUAN: PENJINAK BOM NUKLIR TAHAP 2 (Penyesuaian Fisika Cahaya Realistis)
+                    if (child.isLight) {
+                        if (child.type === 'PointLight') {
+                            // Angka 5 terlalu lemah untuk hukum inverse-square dari ketinggian tiang.
+                            // Kita set ke 1500 agar aspal di bawahnya bisa terang benderang.
+                            child.intensity = 1500.0; 
+                            child.distance = 60; // Jarak jangkauan cahaya diperlebar ke 60 unit
+                            child.decay = 2; // Cahaya memudar secara realistis seiring jarak
+                        } else if (child.type === 'DirectionalLight') {
+                            child.intensity = 0.5; // Biarkan Moonlight redup di angka 0.5
+                        }
+                    }
                 });
 
                 this.floorMesh.add(mapModel);
                 this.isMapLoaded = true;
+                
+                // Mengaktifkan StreetLampCullingManager setelah model Map terpasang di Scene
+                this.lampManager = new StreetLampCullingManager(mapModel, this.camera);
+
                 console.log("[World] Map Utama berhasil dimuat dan collider Rapier disinkronkan presisi!");
+                
+                // Bersihkan draco loader dari memori setelah selesai untuk optimasi RAM
+                dracoLoader.dispose();
             },
             (xhr) => {
                 if (xhr.lengthComputable) {
@@ -103,6 +133,12 @@ export class World {
                 console.error("Gagal memuat map utama dari path " + mapPath + ":", error);
             }
         );
+    }
+
+    updateLamps() {
+        if (this.lampManager) {
+            this.lampManager.update();
+        }
     }
 
     sculptTerrain(point, brushSize, tool, delta, isLeftClick, isRightMouseDown) {}
